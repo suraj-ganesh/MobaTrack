@@ -2,9 +2,10 @@
 // No network, no gateway. Pure heuristics like FinTrack's AI insights fallback.
 
 export function getTotals(transactions) {
+  const list = Array.isArray(transactions) ? transactions : [];
   let income = 0;
   let expenses = 0;
-  for (const t of transactions) {
+  for (const t of list) {
     const a = Number(t.amount) || 0;
     if (t.type === 'income') income += a;
     else expenses += a;
@@ -13,10 +14,12 @@ export function getTotals(transactions) {
 }
 
 export function generateInsights(transactions, goals) {
+  const txList = Array.isArray(transactions) ? transactions : [];
+  const goalList = Array.isArray(goals) ? goals : [];
   const insights = [];
-  const { income, expenses, balance } = getTotals(transactions);
+  const { income, expenses, balance } = getTotals(txList);
 
-  if (transactions.length === 0) {
+  if (txList.length === 0) {
     return [
       { type: 'info', title: 'No data yet', description: 'Add your first income or expense to get balance suggestions.' },
       { type: 'tip', title: 'Start simple', description: 'Log Salary as income, then Food / Transport as expenses.' },
@@ -55,9 +58,10 @@ export function generateInsights(transactions, goals) {
   }
 
   const byCat = {};
-  for (const t of transactions) {
+  for (const t of txList) {
     if (t.type !== 'expense') continue;
-    byCat[t.category] = (byCat[t.category] || 0) + Number(t.amount);
+    const key = String(t.category || 'Other');
+    byCat[key] = (byCat[key] || 0) + (Number(t.amount) || 0);
   }
   const top = Object.entries(byCat).sort((a, b) => b[1] - a[1])[0];
   if (top && expenses > 0) {
@@ -71,7 +75,7 @@ export function generateInsights(transactions, goals) {
     });
   }
 
-  const days = new Set(transactions.map((t) => String(t.date).slice(0, 10))).size || 1;
+  const days = new Set(txList.map((t) => String(t.date).slice(0, 10))).size || 1;
   const dailyAvg = expenses / days;
   if (dailyAvg > 0) {
     const runway = balance > 0 ? Math.floor(balance / dailyAvg) : 0;
@@ -84,21 +88,23 @@ export function generateInsights(transactions, goals) {
     });
   }
 
-  for (const g of goals.slice(0, 3)) {
-    const pct = g.target > 0 ? (g.saved / g.target) * 100 : 0;
+  for (const g of goalList.slice(0, 3)) {
+    const target = Number(g.target) || 0;
+    const saved = Number(g.saved) || 0;
+    const pct = target > 0 ? (saved / target) * 100 : 0;
     if (pct >= 100) {
       insights.push({ type: 'success', title: `Goal reached: ${g.name}`, description: 'Goal fully funded. Create a new one.' });
     } else if (balance > 0 && pct < 100) {
-      const suggest = Math.min(balance * 0.2, g.target - g.saved).toFixed(2);
+      const suggest = Math.max(0, Math.min(balance * 0.2, target - saved)).toFixed(2);
       insights.push({ type: 'tip', title: `Fund "${g.name}"`, description: `${pct.toFixed(0)}% funded. You could move ${suggest} (20% of balance) toward it.` });
     }
   }
 
-  const recent = [...transactions]
+  const recent = [...txList]
     .sort((a, b) => String(b.date).localeCompare(String(a.date)))
     .slice(0, 14);
-  const recentExp = recent.filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
-  const older = transactions.slice(14, 28).filter((t) => t.type === 'expense').reduce((s, t) => s + Number(t.amount), 0);
+  const recentExp = recent.filter((t) => t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
+  const older = txList.slice(14, 28).filter((t) => t.type === 'expense').reduce((s, t) => s + (Number(t.amount) || 0), 0);
   if (older > 0) {
     const chg = ((recentExp - older) / older) * 100;
     if (Math.abs(chg) >= 10) {
