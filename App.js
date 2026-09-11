@@ -605,7 +605,7 @@ const S = StyleSheet.create({
   pad: { height: 12 },
   seamWrap: { alignItems: 'center', gap: 6, marginTop: -13, marginBottom: 2 },
   seamBar: { width: 120, height: 12, borderRadius: 999, borderCurve: 'continuous', backgroundColor: C.creamLight, borderWidth: 2, borderColor: C.ink },
-  seamThin: { width: 200, height: 5, borderRadius: 999, borderCurve: 'continuous', backgroundColor: 'rgba(219,210,205,0.45)' },
+  seamThin: { width: 200, height: 5, borderRadius: 999, borderCurve: 'continuous', backgroundColor: 'rgba(29,30,34,0.25)' },
   fadeStrip: { height: 16, marginHorizontal: 26, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderCurve: 'continuous', overflow: 'hidden' },
   detailCream: { backgroundColor: C.cream, borderRadius: 24, borderCurve: 'continuous', padding: 14, alignItems: 'center', paddingBottom: 26, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
   detailDark: { backgroundColor: C.inkSoft, borderRadius: 22, borderCurve: 'continuous', padding: 16, marginTop: -12, overflow: 'hidden' },

@@ -1,5 +1,5 @@
 export const C = {
-  ink: '#F5F3EF',
+  ink: '#DBD2CD',
   inkSoft: '#E7E0D8',
   cream: '#1D1E22',
   creamLight: '#1D1E22',
@@ -10,7 +10,7 @@ export const C = {
   muted: '#6E6A68',
   border: '#8B8784',
   white: '#FFFFFF',
-  bg: '#F5F3EF',
+  bg: '#DBD2CD',
   text: '#1D1E22',
   card: '#1D1E22',
   invertedBg: '#1D1E22',

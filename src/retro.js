@@ -85,7 +85,7 @@ export function RetroFace({ variant = 'classic', size = 148, mini }) {
 const OLD_TO_NEW = { bob: 'classic', pixie: 'crop', curls: 'curly', long: 'buzz' };
 
 const S = StyleSheet.create({
-  blob: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(219,210,205,0.12)' },
+  blob: { position: 'absolute', borderRadius: 999, backgroundColor: 'rgba(29,30,34,0.06)' },
   icon: { fontSize: 16, color: C.ink, fontWeight: '700' },
   iconLight: { color: C.creamLight },
   pill: { backgroundColor: C.creamLight, borderRadius: 999, borderCurve: 'continuous', paddingVertical: 13, paddingHorizontal: 22, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.16, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 3 },
