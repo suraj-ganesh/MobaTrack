@@ -11,11 +11,11 @@ import { BouncyPress } from './smooth';
 
 const BAR_H = 78;
 const R = 30;
-const SCOOP_W = 84;
-const SCOOP_D = 28;
+const SCOOP_A = 70;
+const SCOOP_D = 32;
 const BAR_BG = '#0C0D10';
-const CIRCLE_BG = '#F5F3EF';
-const ICON_INK = '#1D1E22';
+const CIRCLE_BG = '#0C0D10';
+const ICON_INK = '#F5F3EF';
 const ICON_IDLE = '#8B8784';
 const LABEL_IDLE = '#A7A3A0';
 
@@ -31,12 +31,12 @@ const SLOTS = [
 
 function buildPath(cx, W, H) {
   'worklet';
-  const l = cx - SCOOP_W / 2;
-  const r = cx + SCOOP_W / 2;
+  const l = cx - SCOOP_A;
+  const r = cx + SCOOP_A;
   return (
     `M0,${R} Q0,0 ${R},0 ` +
-    `H${l - 32} C${l - 10},0 ${l - 4},${SCOOP_D} ${l + 18},${SCOOP_D} ` +
-    `L${r - 18},${SCOOP_D} C${r + 4},${SCOOP_D} ${r + 10},0 ${r + 32},0 ` +
+    `H${l} C${l + 42},0 ${cx - 34},${SCOOP_D} ${cx},${SCOOP_D} ` +
+    `C${cx + 34},${SCOOP_D} ${r - 42},0 ${r},0 ` +
     `H${W - R} Q${W},0 ${W},${R} V${H - R} Q${W},${H} ${W - R},${H} ` +
     `H${R} Q0,${H} 0,${H - R} Z`
   );
@@ -115,21 +115,21 @@ const N = StyleSheet.create({
   slot: { alignItems: 'center', justifyContent: 'center' },
   slotTouch: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
   activeCircle: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     borderCurve: 'continuous',
     backgroundColor: CIRCLE_BG,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -34,
+    marginTop: -35,
     shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 5,
   },
-  activeGlyph: { fontSize: 22, color: ICON_INK, fontWeight: '800' },
+  activeGlyph: { fontSize: 24, color: ICON_INK, fontWeight: '700' },
   idleBox: { alignItems: 'center', justifyContent: 'center', marginTop: 10 },
   idleGlyph: { fontSize: 22, color: ICON_IDLE, fontWeight: '700' },
   idleLabel: { color: LABEL_IDLE, fontSize: 7, fontWeight: '800', letterSpacing: 1, marginTop: 3 },
@@ -138,7 +138,7 @@ const N = StyleSheet.create({
     height: 58,
     borderRadius: 29,
     borderCurve: 'continuous',
-    backgroundColor: CIRCLE_BG,
+    backgroundColor: '#F5F3EF',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: -30,
@@ -148,5 +148,5 @@ const N = StyleSheet.create({
     shadowOffset: { width: 0, height: 5 },
     elevation: 6,
   },
-  plusGlyph: { fontSize: 30, color: ICON_INK, fontWeight: '400', marginTop: -3 },
+  plusGlyph: { fontSize: 30, color: '#1D1E22', fontWeight: '400', marginTop: -3 },
 });
