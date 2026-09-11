@@ -2,7 +2,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import {
   Alert,
-  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,11 +13,14 @@ import {
   View,
 } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BouncyPress, RiseIn, ScreenShell } from './src/smooth';
+import { SmoothBar } from './src/notchbar';
 import { C, DEFAULT_CATEGORIES, formatMoney } from './src/theme';
 import { loadAll, saveTransactions, saveGoals, saveSettings, clearAll, uid } from './src/storage';
 import { getTotals, generateInsights } from './src/ai';
-
-const TABS = ['Home', 'Tx', 'Goals', 'AI', 'More'];
+import { CircleArrow, DecorBackground, PillButton, Stars, TinyIcon } from './src/retro';
+import { AVATAR_IDS, AvatarBust, AvatarPhoto, avatarLabel, normAvatar } from './src/avatars';
 
 function sanitizeAmount(v) {
   const n = Number(String(v).trim());
@@ -29,9 +31,8 @@ export default function App() {
   const [tab, setTab] = useState('Home');
   const [transactions, setTransactions] = useState([]);
   const [goals, setGoals] = useState([]);
-  const [settings, setSettings] = useState({ currency: 'Rs.', name: '' });
+  const [settings, setSettings] = useState({ currency: 'Rs.', name: 'Parzavel', avatar: 'm1' });
   const [ready, setReady] = useState(false);
-
   const [showTxModal, setShowTxModal] = useState(false);
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [query, setQuery] = useState('');
@@ -56,19 +57,8 @@ export default function App() {
   const totals = useMemo(() => getTotals(transactions), [transactions]);
   const insights = useMemo(() => generateInsights(transactions, goals), [transactions, goals]);
   const currency = settings.currency?.trim() ? settings.currency : 'Rs.';
-
-  const persistTx = useCallback(async (updater) => {
-    let next = [];
-    setTransactions((prev) => {
-      next = typeof updater === 'function' ? updater(prev) : updater;
-      return next;
-    });
-    await new Promise((r) => setTimeout(r, 0));
-    setTransactions((current) => {
-      saveTransactions(current);
-      return current;
-    });
-  }, []);
+  const avatar = normAvatar(settings.avatar);
+  const displayName = String(settings.name || '').trim().toUpperCase() || 'PARZAVEL';
 
   const addTx = useCallback(async ({ amount, type, category, note }) => {
     const clean = sanitizeAmount(amount);
@@ -152,7 +142,8 @@ export default function App() {
   const updateSettings = useCallback(async (s) => {
     const clean = {
       currency: String(s.currency || 'Rs.').slice(0, 6) || 'Rs.',
-      name: String(s.name || '').slice(0, 60),
+      name: String(s.name || 'Parzavel').slice(0, 60) || 'Parzavel',
+      avatar: normAvatar(s.avatar),
     };
     setSettings(clean);
     await saveSettings(clean);
@@ -185,8 +176,8 @@ export default function App() {
   if (!ready) {
     return (
       <SafeAreaProvider>
-        <SafeAreaView style={S.center} edges={['top', 'bottom']}>
-          <Text style={S.title}>MobaTrack</Text>
+        <SafeAreaView style={S.loading} edges={['top', 'bottom']}>
+          <Text style={S.loadTitle}>PARZAVEL</Text>
           <StatusBar style="dark" />
         </SafeAreaView>
       </SafeAreaProvider>
@@ -195,117 +186,82 @@ export default function App() {
 
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={S.root} edges={['top', 'bottom']}>
+      <SafeAreaView style={S.root} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar style="dark" />
-        <View style={S.header}>
-          <Text style={S.brand}>MobaTrack{subName(settings.name)}</Text>
-          <Text style={S.balance} numberOfLines={1} adjustsFontSizeToFit>
-            {formatMoney(totals.balance, currency)}
-          </Text>
-          <Text style={S.sub}>balance</Text>
+        <DecorBackground />
+        <View style={S.phone}>
+          <View style={S.body}>
+            <ScreenShell tabKey={tab}>
+            {tab === 'Home' && (
+              <HomeTab totals={totals} transactions={transactions} currency={currency} displayName={displayName} avatar={avatar} goTx={() => setTab('Tx')} />
+            )}
+            {tab === 'Tx' && (
+              <TxTab list={filtered} currency={currency} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onDelete={delTx} />
+            )}
+            {tab === 'AI' && <AITab insights={insights} totals={totals} currency={currency} avatar={avatar} />}
+            {tab === 'More' && (
+              <MoreTab settings={settings} avatar={avatar} onSettings={updateSettings} totals={totals} currency={currency} onReset={resetAll} goals={goals} onAddGoal={() => setShowGoalModal(true)} onFunds={addFunds} onDeleteGoal={delGoal} />
+            )}
+            </ScreenShell>
+          </View>
+          <SmoothBar tab={tab} setTab={setTab} onPlus={() => setShowTxModal(true)} />
         </View>
-
-        <View style={S.body}>
-          {tab === 'Home' && (
-            <HomeTab totals={totals} transactions={transactions} goals={goals} currency={currency} onAdd={() => setShowTxModal(true)} />
-          )}
-          {tab === 'Tx' && (
-            <TxTab list={filtered} currency={currency} query={query} setQuery={setQuery} filter={filter} setFilter={setFilter} onDelete={delTx} onAdd={() => setShowTxModal(true)} />
-          )}
-          {tab === 'Goals' && (
-            <GoalsTab goals={goals} currency={currency} onAdd={() => setShowGoalModal(true)} onFunds={addFunds} onDelete={delGoal} />
-          )}
-          {tab === 'AI' && <AITab insights={insights} />}
-          {tab === 'More' && (
-            <MoreTab settings={settings} onSettings={updateSettings} totals={totals} onReset={resetAll} />
-          )}
-        </View>
-
-        <View style={S.tabs}>
-          {TABS.map((t) => (
-            <TouchableOpacity key={t} onPress={() => setTab(t)} style={[S.tab, tab === t && S.tabActive]} activeOpacity={0.7}>
-              <Text style={[S.tabText, tab === t && S.tabTextActive]}>{t}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        <TxModal visible={showTxModal} onClose={() => setShowTxModal(false)} onSave={addTx} persistHack={persistTx} />
+        <TxModal visible={showTxModal} onClose={() => setShowTxModal(false)} onSave={addTx} />
         <GoalModal visible={showGoalModal} onClose={() => setShowGoalModal(false)} onSave={addGoal} />
       </SafeAreaView>
     </SafeAreaProvider>
   );
 }
 
-function subName(name) {
-  const n = String(name || '').trim();
-  return n ? ` · ${n}` : '';
-}
-
-function Card({ children }) {
-  return <View style={S.card}>{children}</View>;
-}
-
-function Btn({ title, onPress, primary }) {
+function HomeTab({ totals, transactions, currency, displayName, avatar, goTx }) {
+  const recent = transactions.slice(0, 3);
   return (
-    <TouchableOpacity onPress={onPress} style={[S.btn, primary && S.btnPrimary]} activeOpacity={0.7}>
-      <Text style={[S.btnText, primary && S.btnTextPrimary]}>{title}</Text>
-    </TouchableOpacity>
-  );
-}
-
-function HomeTab({ totals, transactions, goals, currency, onAdd }) {
-  const recent = transactions.slice(0, 5);
-  return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.scrollPad} showsVerticalScrollIndicator={false}>
-      <View style={S.statRow}>
-        <View style={S.stat}>
-          <Text style={S.label}>INCOME</Text>
-          <Text style={S.statVal} numberOfLines={1}>{formatMoney(totals.income, currency)}</Text>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled">
+      <View style={S.heroCream}>
+        <AvatarBust id={avatar} size={168} />
+      </View>
+      <View style={S.seamWrap}>
+        <View style={S.seamBar} />
+        <View style={S.seamThin} />
+      </View>
+      <LinearGradient colors={['rgba(219,210,205,0.30)', 'transparent']} style={S.fadeStrip} />
+      <View style={S.heroDark}>
+        <Text style={S.welcome}>WELCOME, {displayName}</Text>
+        <Text style={S.heroDesc}>Money style is the final tip off whether or not you really know your balance.</Text>
+        <Text style={S.balance}>{formatMoney(totals.balance, currency)}</Text>
+        <View style={S.miniRow}>
+          <Text style={S.mini}>+{formatMoney(totals.income, currency)}</Text>
+          <Text style={S.miniDot}>·</Text>
+          <Text style={S.mini}>−{formatMoney(totals.expenses, currency)}</Text>
         </View>
-        <View style={S.statSpacer} />
-        <View style={S.stat}>
-          <Text style={S.label}>EXPENSE</Text>
-          <Text style={S.statVal} numberOfLines={1}>{formatMoney(totals.expenses, currency)}</Text>
+        <View style={S.recentBox}>
+          {recent.length === 0 && <Text style={S.recentEmpty}>No transactions. Tap + to start.</Text>}
+          {recent.map((t, i) => (
+            <RiseIn key={t.id} index={i} style={S.recentLine}>
+              <Text style={S.recentCat} numberOfLines={1}>{String(t.category).toUpperCase()}</Text>
+              <Text style={S.recentAmt} numberOfLines={1}>{t.type === 'income' ? '+' : '−'}{formatMoney(t.amount, currency)}</Text>
+            </RiseIn>
+          ))}
+        </View>
+        <View style={S.centerRow}>
+          <CircleArrow onPress={goTx} />
         </View>
       </View>
-      <Card>
-        <Text style={S.label}>RECENT</Text>
-        {recent.length === 0 && <Text style={S.muted}>No transactions. Tap + Add.</Text>}
-        {recent.map((t) => (
-          <View key={t.id} style={S.line}>
-            <Text style={S.lineText} numberOfLines={1}>
-              {t.category} · {t.note || t.type}
-            </Text>
-            <Text style={S.lineText} numberOfLines={1}>
-              {t.type === 'income' ? '+' : '-'}{formatMoney(t.amount, currency)}
-            </Text>
-          </View>
-        ))}
-      </Card>
-      <Card>
-        <Text style={S.label}>GOALS ({goals.length})</Text>
-        {goals.slice(0, 3).map((g) => {
-          const pct = pctOf(g.saved, g.target);
-          return (
-            <View key={g.id} style={S.goalBlock}>
-              <Text style={S.lineText} numberOfLines={1}>{g.name} — {pct.toFixed(0)}%</Text>
-              <View style={S.bar}><View style={[S.barFill, { width: `${pct}%` }]} /></View>
-            </View>
-          );
-        })}
-        {goals.length === 0 && <Text style={S.muted}>No goals yet.</Text>}
-      </Card>
-      <Btn title="+ Add transaction" onPress={onAdd} primary />
     </ScrollView>
   );
 }
 
-function TxTab({ list, currency, query, setQuery, filter, setFilter, onDelete, onAdd }) {
+function TxTab({ list, currency, query, setQuery, filter, setFilter, onDelete }) {
   return (
-    <View style={S.flex1}>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled">
+      <View style={S.topRow}>
+        <TinyIcon glyph="☰" light />
+        <TinyIcon glyph="♥" light />
+      </View>
+      <Text style={S.choose}>TRANS{'\n'}ACTIONS</Text>
       <TextInput
-        style={S.input}
-        placeholder="Search..."
+        style={S.searchPill}
+        placeholder="Search notes, category..."
         placeholderTextColor={C.muted}
         value={query}
         onChangeText={setQuery}
@@ -314,80 +270,25 @@ function TxTab({ list, currency, query, setQuery, filter, setFilter, onDelete, o
       <View style={S.chipRow}>
         {['all', 'income', 'expense'].map((f) => (
           <TouchableOpacity key={f} onPress={() => setFilter(f)} style={[S.chip, filter === f && S.chipActive]} activeOpacity={0.7}>
-            <Text style={[S.chipText, filter === f && S.chipTextActive]}>{f}</Text>
+            <Text style={[S.chipText, filter === f && S.chipTextActive]}>{f.toUpperCase()}</Text>
           </TouchableOpacity>
         ))}
+        <Text style={S.countMicro}>{list.length} ITEMS</Text>
       </View>
-      <FlatList
-        style={S.flex1}
-        data={list}
-        keyExtractor={(i) => String(i.id)}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        contentContainerStyle={S.scrollPad}
-        renderItem={({ item }) => (
-          <View style={S.card}>
-            <View style={S.line}>
-              <Text style={S.lineText}>{item.date} · {item.category}</Text>
-              <Text style={S.lineText}>
-                {item.type === 'income' ? '+' : '-'}{formatMoney(item.amount, currency)}
-              </Text>
-            </View>
-            {!!item.note && <Text style={S.muted}>{item.note}</Text>}
-            <TouchableOpacity onPress={() => onDelete(item.id)} hitSlop={8}>
-              <Text style={S.delete}>Delete</Text>
-            </TouchableOpacity>
+      {list.map((item, i) => (
+        <RiseIn key={item.id} index={i} style={S.txCard}>
+          <View style={S.txLine}>
+            <Text style={S.txCat}>{String(item.date).slice(5)} · {String(item.category).toUpperCase()}</Text>
+            <Text style={S.txAmt}>{item.type === 'income' ? '+' : '−'}{formatMoney(item.amount, currency)}</Text>
           </View>
-        )}
-        ListEmptyComponent={<Text style={S.muted}>Nothing here.</Text>}
-      />
-      <Btn title="+ Add" onPress={onAdd} primary />
-    </View>
-  );
-}
-
-function GoalsTab({ goals, currency, onAdd, onFunds, onDelete }) {
-  const [amt, setAmt] = useState({});
-  return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.scrollPad} showsVerticalScrollIndicator={false}>
-      <Btn title="+ New goal" onPress={onAdd} primary />
-      {goals.map((g) => {
-        const pct = pctOf(g.saved, g.target);
-        return (
-          <View key={g.id} style={S.card}>
-            <Text style={S.lineText} numberOfLines={1}>{g.name}</Text>
-            <Text style={S.muted}>{formatMoney(g.saved, currency)} / {formatMoney(g.target, currency)} · {pct.toFixed(0)}%</Text>
-            <View style={S.bar}><View style={[S.barFill, { width: `${pct}%` }]} /></View>
-            <View style={S.fundsRow}>
-              <TextInput
-                style={[S.input, S.fundsInput]}
-                placeholder="Amount"
-                placeholderTextColor={C.muted}
-                keyboardType="numeric"
-                value={amt[g.id] || ''}
-                onChangeText={(v) => setAmt((p) => ({ ...p, [g.id]: v.replace(/[^0-9.]/g, '') }))}
-                returnKeyType="done"
-              />
-              <TouchableOpacity
-                style={S.smallBtn}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (amt[g.id]) {
-                    onFunds(g.id, amt[g.id]);
-                    setAmt((p) => ({ ...p, [g.id]: '' }));
-                  }
-                }}
-              >
-                <Text style={S.btnText}>+ Funds</Text>
-              </TouchableOpacity>
-            </View>
-            <TouchableOpacity onPress={() => onDelete(g.id)} hitSlop={8}>
-              <Text style={S.delete}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      })}
-      {goals.length === 0 && <Text style={S.muted}>No goals. Create one.</Text>}
+          {!!item.note && <Text style={S.txNote} numberOfLines={1}>{item.note}</Text>}
+          <TouchableOpacity onPress={() => onDelete(item.id)} hitSlop={8}>
+            <Text style={S.delLink}>DELETE</Text>
+          </TouchableOpacity>
+        </RiseIn>
+      ))}
+      {list.length === 0 && <Text style={S.recentEmpty}>Nothing here. Tap + to add.</Text>}
+      <View style={S.pad} />
     </ScrollView>
   );
 }
@@ -399,53 +300,128 @@ function pctOf(saved, target) {
   return Math.min(100, Math.max(0, (s / t) * 100));
 }
 
-function AITab({ insights }) {
+function AITab({ insights, totals, currency, avatar }) {
+  const score = totals.income > 0 ? Math.max(0, Math.min(100, ((totals.income - totals.expenses) / totals.income) * 100)) : 0;
+  const stars = score >= 40 ? 5 : score >= 20 ? 4 : score >= 0 ? 3 : 2;
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.scrollPad} showsVerticalScrollIndicator={false}>
-      <Text style={S.h2}>Balance suggestions</Text>
-      <Text style={S.muted}>Local rules, offline. No gateway.</Text>
-      <View style={S.spacer} />
-      {insights.map((ins, i) => (
-        <View key={`${ins.title}-${i}`} style={S.card}>
-          <Text style={S.badge}>{String(ins.type || 'info').toUpperCase()}</Text>
-          <Text style={S.lineText}>{ins.title}</Text>
-          <Text style={S.muted}>{ins.description}</Text>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled">
+      <View style={S.detailCream}>
+        <View style={S.heroTopRow}>
+          <TinyIcon glyph="✦" />
+          <TinyIcon glyph="🔖" />
         </View>
+        <AvatarBust id={avatar} size={130} />
+      </View>
+      <LinearGradient colors={['rgba(219,210,205,0.30)', 'transparent']} style={S.fadeStrip} />
+      <View style={S.detailDark}>
+        <Text style={S.detailTitle}>AI FINANCE REPORT</Text>
+        <Stars value={stars} />
+        <Text style={S.detailDesc}>Parzavel's auto-read of your money. Offline rules, no gateway. Savings rate {score.toFixed(0)}% · balance {formatMoney(totals.balance, currency)}.</Text>
+        <Text style={S.detailNums}>{formatMoney(totals.income, currency)} IN · {formatMoney(totals.expenses, currency)} OUT</Text>
+        <View style={S.track}><View style={[S.fill, { width: `${Math.max(0, Math.min(100, score))}%` }]} /></View>
+      </View>
+      <View style={S.pad} />
+      {insights.map((ins, i) => (
+        <RiseIn key={`${ins.title}-${i}`} index={i} style={S.aiCard}>
+          <Text style={S.cardLabel}>{String(ins.type || 'info').toUpperCase()}</Text>
+          <Text style={S.aiTitle}>{ins.title}</Text>
+          <Text style={S.aiDesc}>{ins.description}</Text>
+        </RiseIn>
       ))}
+      <View style={S.pad} />
     </ScrollView>
   );
 }
 
-function MoreTab({ settings, onSettings, totals, onReset }) {
+function MoreTab({ settings, avatar, onSettings, totals, currency, onReset, goals, onAddGoal, onFunds, onDeleteGoal }) {
+  const [amt, setAmt] = useState({});
   return (
-    <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={S.scrollPad} showsVerticalScrollIndicator={false}>
-      <Text style={S.h2}>Settings</Text>
-      <Text style={S.label}>CURRENCY SYMBOL</Text>
+    <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled">
+      <View style={S.topRow}>
+        <TinyIcon glyph="☰" light />
+        <TinyIcon glyph="♥" light />
+      </View>
+      <Text style={S.choose}>MEET{'\n'}PARZAVEL</Text>
+      <View style={S.heroCream}>
+        <AvatarBust id={avatar} size={140} />
+        <Text style={S.cardLabel}>{String(settings.name || 'Parzavel').toUpperCase()}</Text>
+      </View>
+      <LinearGradient colors={['rgba(219,210,205,0.30)', 'transparent']} style={S.fadeStrip} />
+      <Text style={S.fieldLabel}>CHOOSE CHARACTER</Text>
+      <View style={S.avatarGrid}>
+        {AVATAR_IDS.map((v, i) => (
+          <RiseIn key={v} index={i} style={[S.avatarCard, avatar === v && S.avatarActive]}>
+            <BouncyPress onPress={() => onSettings({ ...settings, avatar: v })} style={S.avatarTouch}>
+              <AvatarPhoto id={v} mini />
+              <Text style={S.cardMicro}>{avatarLabel(v)}</Text>
+            </BouncyPress>
+          </RiseIn>
+        ))}
+      </View>
+      <Text style={S.fieldLabel}>NAME</Text>
       <TextInput
-        style={S.input}
-        value={settings.currency}
-        placeholderTextColor={C.muted}
-        maxLength={6}
-        onChangeText={(v) => onSettings({ ...settings, currency: v })}
-      />
-      <Text style={S.label}>NAME</Text>
-      <TextInput
-        style={S.input}
+        style={S.field}
         value={settings.name}
-        placeholder="Your name"
+        placeholder="Parzavel"
         placeholderTextColor={C.muted}
         maxLength={60}
         onChangeText={(v) => onSettings({ ...settings, name: v })}
       />
-      <Card>
-        <Text style={S.muted}>
-          Income: {(Number(totals.income) || 0).toFixed(2)}{'\n'}
-          Expenses: {(Number(totals.expenses) || 0).toFixed(2)}{'\n'}
-          Balance: {(Number(totals.balance) || 0).toFixed(2)}
-        </Text>
-      </Card>
-      <Btn title="Reset all data" onPress={onReset} />
-      <Text style={S.muted}>MobaTrack v1 · React Native + Expo · B/W minimal · offline only</Text>
+      <Text style={S.fieldLabel}>CURRENCY SYMBOL</Text>
+      <TextInput
+        style={S.field}
+        value={settings.currency}
+        maxLength={6}
+        onChangeText={(v) => onSettings({ ...settings, currency: v })}
+      />
+      <Text style={S.fieldLabel}>GOALS ({goals.length})</Text>
+      {goals.map((g, gi) => {
+        const pct = pctOf(g.saved, g.target);
+        return (
+          <RiseIn key={g.id} index={gi} style={S.txCard}>
+            <View style={S.txLine}>
+              <Text style={S.txCat} numberOfLines={1}>{String(g.name).toUpperCase()}</Text>
+              <Text style={S.txAmt}>{pct.toFixed(0)}%</Text>
+            </View>
+            <Text style={S.txNote}>{formatMoney(g.saved, currency)} / {formatMoney(g.target, currency)}</Text>
+            <View style={S.track}><View style={[S.fill, { width: `${pct}%` }]} /></View>
+            <View style={S.fundRow}>
+              <TextInput
+                style={[S.searchPill, S.fundInput]}
+                placeholder="Amount"
+                placeholderTextColor={C.muted}
+                keyboardType="numeric"
+                value={amt[g.id] || ''}
+                onChangeText={(v) => setAmt((p) => ({ ...p, [g.id]: v.replace(/[^0-9.]/g, '') }))}
+                returnKeyType="done"
+              />
+              <TouchableOpacity
+                style={S.fundBtn}
+                activeOpacity={0.8}
+                onPress={() => {
+                  if (amt[g.id]) {
+                    onFunds(g.id, amt[g.id]);
+                    setAmt((p) => ({ ...p, [g.id]: '' }));
+                  }
+                }}
+              >
+                <Text style={S.fundBtnText}>FUND</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={() => onDeleteGoal(g.id)} hitSlop={8}>
+              <Text style={S.delLink}>DELETE GOAL</Text>
+            </TouchableOpacity>
+          </RiseIn>
+        );
+      })}
+      <PillButton title="+ New goal" onPress={onAddGoal} />
+      <View style={S.pad} />
+      <View style={S.sumBox}>
+        <Text style={S.sumText}>INCOME  {formatMoney(totals.income, currency)}{'\n'}EXPENSE  {formatMoney(totals.expenses, currency)}{'\n'}BALANCE  {formatMoney(totals.balance, currency)}</Text>
+      </View>
+      <PillButton title="Reset all data" onPress={onReset} />
+      <Text style={S.micro}>PARZAVEL · RETRO EDITORIAL · OFFLINE ONLY</Text>
+      <View style={S.pad} />
     </ScrollView>
   );
 }
@@ -479,23 +455,23 @@ function TxModal({ visible, onClose, onSave }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={S.flex1}>
-        <View style={S.modalWrap}>
-          <View style={S.modal}>
-            <Text style={S.h2}>{type === 'income' ? 'Add income' : 'Add expense'}</Text>
+        <View style={S.sheetWrap}>
+          <View style={S.sheet}>
+            <Text style={S.sheetTitle}>{type === 'income' ? 'ADD INCOME' : 'ADD EXPENSE'}</Text>
             <View style={S.chipRow}>
               {['expense', 'income'].map((t) => (
                 <TouchableOpacity
                   key={t}
                   onPress={() => { setType(t); setCategory(t === 'income' ? 'Salary' : 'Food'); }}
-                  style={[S.chip, type === t && S.chipActive]}
+                  style={[S.chipDark, type === t && S.chipDarkActive]}
                   activeOpacity={0.7}
                 >
-                  <Text style={[S.chipText, type === t && S.chipTextActive]}>{t}</Text>
+                  <Text style={[S.chipDarkText, type === t && S.chipDarkTextActive]}>{t.toUpperCase()}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <TextInput
-              style={S.input}
+              style={S.field}
               placeholder="Amount"
               placeholderTextColor={C.muted}
               keyboardType="numeric"
@@ -508,23 +484,24 @@ function TxModal({ visible, onClose, onSave }) {
                 <TouchableOpacity
                   key={c.name}
                   onPress={() => setCategory(c.name)}
-                  style={[S.chip, S.chipMargin, category === c.name && S.chipActive]}
+                  style={[S.chipDark, S.chipGap, category === c.name && S.chipDarkActive]}
                   activeOpacity={0.7}
                 >
-                  <Text style={[S.chipText, category === c.name && S.chipTextActive]}>{c.name}</Text>
+                  <Text style={[S.chipDarkText, category === c.name && S.chipDarkTextActive]}>{c.name.toUpperCase()}</Text>
                 </TouchableOpacity>
               ))}
             </View>
             <TextInput
-              style={S.input}
+              style={S.field}
               placeholder="Note (optional)"
               placeholderTextColor={C.muted}
               value={note}
               onChangeText={(v) => setNote(v.slice(0, 120))}
               returnKeyType="done"
             />
-            <Btn title="Save" primary onPress={handleSave} />
-            <Btn title="Cancel" onPress={onClose} />
+            <PillButton title="Save entry" onPress={handleSave} dark />
+            <View style={S.pad} />
+            <PillButton title="Cancel" onPress={onClose} />
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -555,11 +532,11 @@ function GoalModal({ visible, onClose, onSave }) {
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={S.flex1}>
-        <View style={S.modalWrap}>
-          <View style={S.modal}>
-            <Text style={S.h2}>New goal</Text>
+        <View style={S.sheetWrap}>
+          <View style={S.sheet}>
+            <Text style={S.sheetTitle}>NEW GOAL</Text>
             <TextInput
-              style={S.input}
+              style={S.field}
               placeholder="Goal name"
               placeholderTextColor={C.muted}
               value={name}
@@ -567,7 +544,7 @@ function GoalModal({ visible, onClose, onSave }) {
               onChangeText={setName}
             />
             <TextInput
-              style={S.input}
+              style={S.field}
               placeholder="Target amount"
               placeholderTextColor={C.muted}
               keyboardType="numeric"
@@ -575,8 +552,9 @@ function GoalModal({ visible, onClose, onSave }) {
               onChangeText={(v) => setTarget(v.replace(/[^0-9.]/g, ''))}
               returnKeyType="done"
             />
-            <Btn title="Save" primary onPress={handleSave} />
-            <Btn title="Cancel" onPress={onClose} />
+            <PillButton title="Save goal" onPress={handleSave} dark />
+            <View style={S.pad} />
+            <PillButton title="Cancel" onPress={onClose} />
           </View>
         </View>
       </KeyboardAvoidingView>
@@ -586,51 +564,79 @@ function GoalModal({ visible, onClose, onSave }) {
 
 const S = StyleSheet.create({
   flex1: { flex: 1 },
-  root: { flex: 1, backgroundColor: C.bg },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
-  title: { fontSize: 28, fontWeight: '800', color: C.text },
-  header: { padding: 16, borderBottomWidth: 1, borderColor: C.border, backgroundColor: C.bg },
-  brand: { fontSize: 14, fontWeight: '700', letterSpacing: 2, color: C.text },
-  balance: { fontSize: 34, fontWeight: '800', color: C.text },
-  sub: { color: C.muted },
-  body: { flex: 1, padding: 12 },
-  scrollPad: { paddingBottom: 24 },
-  spacer: { height: 8 },
-  tabs: { flexDirection: 'row', borderTopWidth: 1, borderColor: C.border, backgroundColor: C.bg },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
-  tabActive: { backgroundColor: C.invertedBg },
-  tabText: { color: C.text, fontWeight: '600' },
-  tabTextActive: { color: C.invertedText },
-  statRow: { flexDirection: 'row', marginBottom: 8 },
-  stat: { flex: 1, borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12, backgroundColor: C.card },
-  statSpacer: { width: 8 },
-  statVal: { fontSize: 15, fontWeight: '800', color: C.text },
-  label: { fontSize: 11, letterSpacing: 1, color: C.muted, fontWeight: '700', marginBottom: 2 },
-  line: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 4 },
-  lineText: { color: C.text, fontWeight: '600', flexShrink: 1 },
-  muted: { color: C.muted },
-  card: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12, marginBottom: 10, backgroundColor: C.card },
-  goalBlock: { marginTop: 8 },
-  bar: { height: 8, backgroundColor: C.grayBg, borderWidth: 1, borderColor: C.border, borderRadius: 4, marginTop: 6, overflow: 'hidden' },
-  barFill: { height: '100%', backgroundColor: C.text },
-  input: { borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 10, marginBottom: 8, color: C.text, backgroundColor: C.bg },
-  chipRow: { flexDirection: 'row', marginBottom: 8 },
+  root: { flex: 1, backgroundColor: C.ink },
+  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.ink },
+  loadTitle: { fontSize: 24, fontWeight: '800', letterSpacing: 3, color: C.creamLight },
+  phone: { flex: 1, backgroundColor: C.ink },
+  body: { flex: 1 },
+  scroll: { padding: 16, paddingBottom: 28 },
+  heroCream: { backgroundColor: C.cream, borderRadius: 24, borderCurve: 'continuous', padding: 14, alignItems: 'center', paddingBottom: 20, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  heroTopRow: { width: '100%', flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  heroDark: { paddingTop: 20, paddingHorizontal: 4 },
+  welcome: { fontSize: 22, fontWeight: '800', lineHeight: 24, letterSpacing: -0.5, color: C.creamLight, textTransform: 'uppercase', textAlign: 'center' },
+  heroDesc: { fontSize: 12, lineHeight: 17, color: C.muted, textAlign: 'center', marginTop: 8, paddingHorizontal: 12 },
+  balance: { fontSize: 30, fontWeight: '800', color: C.creamLight, textAlign: 'center', marginTop: 12, letterSpacing: -1 },
+  miniRow: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 4 },
+  mini: { color: C.muted, fontSize: 11, fontWeight: '600' },
+  miniDot: { color: C.muted, marginHorizontal: 6 },
+  recentBox: { marginTop: 12, marginBottom: 16 },
+  recentLine: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5, borderBottomWidth: 1, borderColor: 'rgba(29,30,34,0.14)' },
+  recentCat: { color: C.creamLight, fontSize: 10, fontWeight: '800', letterSpacing: 1 },
+  recentAmt: { color: C.cream, fontSize: 11, fontWeight: '700' },
+  recentEmpty: { color: C.muted, fontSize: 12, textAlign: 'center', marginVertical: 8 },
+  centerRow: { alignItems: 'center', marginBottom: 14 },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
+  choose: { fontSize: 24, fontWeight: '800', lineHeight: 26, letterSpacing: -0.5, color: C.creamLight, marginTop: 12, marginBottom: 14, textTransform: 'uppercase' },
+  cardLabel: { fontSize: 8, fontWeight: '800', letterSpacing: 0.5, color: C.ink, textTransform: 'uppercase', textAlign: 'center' },
+  cardMicro: { fontSize: 8, fontWeight: '700', color: C.textSecondary, letterSpacing: 0.5, textTransform: 'uppercase' },
+  searchPill: { backgroundColor: C.creamLight, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, marginTop: 14, color: C.ink, fontSize: 12 },
+  chipRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, marginBottom: 10, gap: 6, flexWrap: 'wrap' },
+  chip: { borderWidth: 1, borderColor: 'rgba(29,30,34,0.35)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6 },
+  chipActive: { backgroundColor: C.creamLight, borderColor: C.creamLight },
+  chipText: { color: C.creamLight, fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  chipTextActive: { color: C.ink },
+  countMicro: { color: C.muted, fontSize: 8, fontWeight: '700', marginLeft: 6, letterSpacing: 0.5 },
+  txCard: { backgroundColor: 'rgba(29,30,34,0.05)', borderRadius: 18, borderCurve: 'continuous', padding: 14, marginBottom: 10, borderWidth: 1, borderColor: 'rgba(29,30,34,0.12)', overflow: 'hidden' },
+  txLine: { flexDirection: 'row', justifyContent: 'space-between' },
+  txCat: { color: C.creamLight, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  txAmt: { color: C.creamLight, fontSize: 12, fontWeight: '800' },
+  txNote: { color: C.muted, fontSize: 11, marginTop: 2 },
+  delLink: { color: C.graySoft, fontSize: 8, fontWeight: '800', letterSpacing: 1, marginTop: 6, textDecorationLine: 'underline' },
+  pad: { height: 12 },
+  seamWrap: { alignItems: 'center', gap: 6, marginTop: -13, marginBottom: 2 },
+  seamBar: { width: 120, height: 12, borderRadius: 999, borderCurve: 'continuous', backgroundColor: C.creamLight, borderWidth: 2, borderColor: C.ink },
+  seamThin: { width: 200, height: 5, borderRadius: 999, borderCurve: 'continuous', backgroundColor: 'rgba(219,210,205,0.45)' },
+  fadeStrip: { height: 16, marginHorizontal: 26, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderCurve: 'continuous', overflow: 'hidden' },
+  detailCream: { backgroundColor: C.cream, borderRadius: 24, borderCurve: 'continuous', padding: 14, alignItems: 'center', paddingBottom: 26, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.14, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 3 },
+  detailDark: { backgroundColor: C.inkSoft, borderRadius: 22, borderCurve: 'continuous', padding: 16, marginTop: -12, overflow: 'hidden' },
+  detailTitle: { fontSize: 22, fontWeight: '800', color: C.creamLight, lineHeight: 24, letterSpacing: -0.5, textTransform: 'uppercase' },
+  detailDesc: { fontSize: 12, lineHeight: 17, color: C.muted, marginTop: 10 },
+  detailNums: { color: C.creamLight, fontSize: 11, fontWeight: '700', marginTop: 10 },
+  track: { height: 10, backgroundColor: 'rgba(29,30,34,0.15)', borderRadius: 999, borderCurve: 'continuous', marginTop: 8, marginBottom: 14, overflow: 'hidden' },
+  fill: { height: '100%', backgroundColor: C.creamLight, borderRadius: 999, borderCurve: 'continuous' },
+  fundRow: { flexDirection: 'row', gap: 8, marginBottom: 12 },
+  fundInput: { flex: 1, marginTop: 0 },
+  fundBtn: { backgroundColor: C.creamLight, borderRadius: 999, paddingHorizontal: 18, justifyContent: 'center' },
+  fundBtnText: { color: C.ink, fontSize: 9, fontWeight: '800', letterSpacing: 1 },
+  aiCard: { backgroundColor: C.cream, borderRadius: 20, borderCurve: 'continuous', padding: 16, marginBottom: 12, overflow: 'hidden', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 12, shadowOffset: { width: 0, height: 5 }, elevation: 2 },
+  aiTitle: { color: C.ink, fontSize: 13, fontWeight: '800', marginTop: 4 },
+  aiDesc: { color: C.textSecondary, fontSize: 12, lineHeight: 17, marginTop: 4 },
+  fieldLabel: { fontSize: 9, fontWeight: '800', letterSpacing: 1.5, color: C.muted, marginTop: 14, marginBottom: 6, textAlign: 'center' },
+  field: { backgroundColor: C.creamLight, borderRadius: 999, paddingHorizontal: 16, paddingVertical: 10, color: C.ink, fontSize: 13, marginBottom: 4 },
+  sumBox: { borderWidth: 1, borderColor: 'rgba(29,30,34,0.2)', borderRadius: 18, borderCurve: 'continuous', padding: 14, marginVertical: 14, overflow: 'hidden' },
+  sumText: { color: C.muted, fontSize: 11, lineHeight: 18, fontWeight: '600' },
+  micro: { color: C.muted, fontSize: 8, letterSpacing: 1, textAlign: 'center', marginTop: 12, fontWeight: '700' },
+  avatarGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+  avatarCard: { width: '31%', backgroundColor: C.cream, borderRadius: 20, borderCurve: 'continuous', padding: 8, alignItems: 'center', gap: 4, overflow: 'hidden' },
+  avatarActive: { backgroundColor: '#2A2C31', borderWidth: 2, borderColor: '#F5F3EF' },
+  avatarTouch: { alignItems: 'center', gap: 4 },
+  sheetWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  sheet: { backgroundColor: C.cream, borderTopLeftRadius: 28, borderTopRightRadius: 28, borderCurve: 'continuous', padding: 20, paddingBottom: 34, overflow: 'hidden' },
+  sheetTitle: { fontSize: 20, fontWeight: '800', color: C.ink, letterSpacing: -0.5, textTransform: 'uppercase', marginBottom: 12 },
+  chipDark: { borderWidth: 1, borderColor: C.ink, borderRadius: 999, paddingHorizontal: 14, paddingVertical: 7, marginRight: 6 },
+  chipDarkActive: { backgroundColor: C.ink },
+  chipDarkText: { color: C.ink, fontSize: 8, fontWeight: '800', letterSpacing: 1 },
+  chipDarkTextActive: { color: C.creamLight },
   chipWrap: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
-  chip: { borderWidth: 1, borderColor: C.border, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 6, marginRight: 6 },
-  chipMargin: { marginBottom: 6 },
-  chipActive: { backgroundColor: C.invertedBg },
-  chipText: { color: C.text },
-  chipTextActive: { color: C.invertedText },
-  btn: { borderWidth: 1, borderColor: C.border, borderRadius: 8, padding: 12, alignItems: 'center', marginBottom: 8, backgroundColor: C.bg },
-  btnPrimary: { backgroundColor: C.invertedBg },
-  btnText: { color: C.text, fontWeight: '700' },
-  btnTextPrimary: { color: C.invertedText },
-  smallBtn: { borderWidth: 1, borderColor: C.border, borderRadius: 8, paddingHorizontal: 12, justifyContent: 'center', marginBottom: 8, backgroundColor: C.bg },
-  fundsRow: { flexDirection: 'row', marginTop: 8 },
-  fundsInput: { flex: 1, marginRight: 8 },
-  delete: { color: C.muted, marginTop: 6, textDecorationLine: 'underline' },
-  h2: { fontSize: 20, fontWeight: '800', color: C.text, marginBottom: 6 },
-  badge: { fontSize: 10, fontWeight: '800', letterSpacing: 1, color: C.muted, marginBottom: 2 },
-  modalWrap: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modal: { backgroundColor: C.bg, borderTopWidth: 2, borderColor: C.border, padding: 16, borderTopLeftRadius: 12, borderTopRightRadius: 12 },
+  chipGap: { marginBottom: 6 },
 });

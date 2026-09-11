@@ -1,10 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { normAvatar } from './avatars';
 
 const KEYS = {
   transactions: 'mobatrack_transactions_v1',
   goals: 'mobatrack_goals_v1',
   settings: 'mobatrack_settings_v1',
 };
+
+const DEFAULT_SETTINGS = { currency: 'Rs.', name: 'Parzavel', avatar: 'm1' };
 
 function safeParse(raw, fallback) {
   try {
@@ -14,6 +17,17 @@ function safeParse(raw, fallback) {
   } catch {
     return fallback;
   }
+}
+
+function cleanSettings(v) {
+  if (v && typeof v === 'object') {
+    return {
+      currency: String(v.currency || 'Rs.').slice(0, 6) || 'Rs.',
+      name: String(v.name || 'Parzavel').slice(0, 60) || 'Parzavel',
+      avatar: normAvatar(v.avatar),
+    };
+  }
+  return { ...DEFAULT_SETTINGS };
 }
 
 export async function loadAll() {
@@ -29,13 +43,10 @@ export async function loadAll() {
     return {
       transactions: Array.isArray(transactions) ? transactions : [],
       goals: Array.isArray(goalsList) ? goalsList : [],
-      settings:
-        parsedSettings && typeof parsedSettings === 'object'
-          ? { currency: String(parsedSettings.currency || 'Rs.'), name: String(parsedSettings.name || '') }
-          : { currency: 'Rs.', name: '' },
+      settings: cleanSettings(parsedSettings),
     };
   } catch {
-    return { transactions: [], goals: [], settings: { currency: 'Rs.', name: '' } };
+    return { transactions: [], goals: [], settings: { ...DEFAULT_SETTINGS } };
   }
 }
 
@@ -53,7 +64,7 @@ export async function saveGoals(list) {
 
 export async function saveSettings(s) {
   try {
-    await AsyncStorage.setItem(KEYS.settings, JSON.stringify(s));
+    await AsyncStorage.setItem(KEYS.settings, JSON.stringify(cleanSettings(s)));
   } catch {}
 }
 
