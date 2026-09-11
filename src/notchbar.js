@@ -1,152 +1,151 @@
-import { useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
-import Animated, {
-  ZoomIn,
-  useAnimatedProps,
-  useSharedValue,
-  withSpring,
-} from 'react-native-reanimated';
+import Animated, { ZoomIn } from 'react-native-reanimated';
 import { BouncyPress } from './smooth';
 
 const BAR_H = 78;
-const R = 30;
-const SCOOP_A = 70;
-const SCOOP_D = 32;
-const BAR_BG = '#0C0D10';
-const CIRCLE_BG = '#0C0D10';
-const ICON_INK = '#F5F3EF';
-const ICON_IDLE = '#8B8784';
-const LABEL_IDLE = '#A7A3A0';
+const BAR_BG = '#0B0C0E';
+const CREAM = '#F5F3EF';
+const DIM = 'rgba(245,243,239,0.5)';
 
-const IDX = { Home: 0, Tx: 1, AI: 3, More: 4 };
-
-const SLOTS = [
-  { key: 'Home', glyph: '⌂', label: 'HOME' },
-  { key: 'Tx', glyph: '▤', label: 'TXNS' },
-  { key: '__plus', glyph: '+', label: '' },
-  { key: 'AI', glyph: '✦', label: 'AI' },
-  { key: 'More', glyph: '⋯', label: 'MORE' },
-];
-
-function buildPath(cx, W, H) {
-  'worklet';
-  const l = cx - SCOOP_A;
-  const r = cx + SCOOP_A;
+function HomeIcon({ color }) {
   return (
-    `M0,${R} Q0,0 ${R},0 ` +
-    `H${l} C${l + 42},0 ${cx - 34},${SCOOP_D} ${cx},${SCOOP_D} ` +
-    `C${cx + 34},${SCOOP_D} ${r - 42},0 ${r},0 ` +
-    `H${W - R} Q${W},0 ${W},${R} V${H - R} Q${W},${H} ${W - R},${H} ` +
-    `H${R} Q0,${H} 0,${H - R} Z`
+    <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 11l8-7 8 7v9a1 1 0 0 1-1 1h-5v-6h-4v6H5a1 1 0 0 1-1-1v-9z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+    </Svg>
   );
 }
 
-const AnimatedPath = Animated.createAnimatedComponent(Path);
+function ReceiptIcon({ color }) {
+  return (
+    <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M6 3h8l4 4v14H6V3z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+        strokeLinecap="round"
+      />
+      <Path
+        d="M14 3v4h4M9 12h6M9 15.5h6"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+function SparkIcon({ color }) {
+  return (
+    <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M12 3c.7 4.6 2.5 6.4 7 7-4.5.6-6.3 2.4-7 7-.7-4.6-2.5-6.4-7-7 4.5-.6 6.3-2.4 7-7z"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
+
+function MenuIcon({ color }) {
+  return (
+    <Svg width={27} height={27} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 7h16M4 12h16M4 17h16"
+        stroke={color}
+        strokeWidth={1.8}
+        strokeLinecap="round"
+      />
+    </Svg>
+  );
+}
+
+const SLOTS = [
+  { key: 'Home', Icon: HomeIcon },
+  { key: 'Tx', Icon: ReceiptIcon },
+  { key: '__plus', Icon: null },
+  { key: 'AI', Icon: SparkIcon },
+  { key: 'More', Icon: MenuIcon },
+];
 
 export function SmoothBar({ tab, setTab, onPlus }) {
-  const [W, setW] = useState(0);
-  const cx = useSharedValue(0);
-  const wSV = useSharedValue(340);
-  const width = W > 0 ? W : 340;
-  const slotW = width / 5;
-  const target = slotW * (IDX[tab] + 0.5);
-
-  useEffect(() => {
-    wSV.value = width;
-    cx.value = withSpring(target, { damping: 21, stiffness: 170 });
-  }, [tab, W]);
-
-  const ap = useAnimatedProps(() => ({ d: buildPath(cx.value, wSV.value, BAR_H) }));
-
   return (
     <View style={N.wrap}>
-      <View style={N.stage} onLayout={(e) => setW(e.nativeEvent.layout.width)}>
-        <Svg width={width} height={BAR_H} style={N.svg}>
-          <AnimatedPath animatedProps={ap} fill={BAR_BG} />
-        </Svg>
-        <View style={N.row}>
-          {SLOTS.map((s, i) => {
-            if (s.key === '__plus') {
-              return (
-                <View key="plus" style={[N.slot, { width: slotW }]}>
-                  <BouncyPress onPress={onPlus} style={N.plusCircle}>
-                    <Text style={N.plusGlyph}>+</Text>
-                  </BouncyPress>
-                </View>
-              );
-            }
-            const active = tab === s.key;
+      <View style={N.bar}>
+        {SLOTS.map((s) => {
+          if (s.key === '__plus') {
             return (
-              <View key={s.key} style={[N.slot, { width: slotW }]}>
-                <BouncyPress
-                  onPress={() => setTab(s.key)}
-                  style={N.slotTouch}
-                >
-                  {active ? (
-                    <Animated.View
-                      key={tab}
-                      entering={ZoomIn.springify().damping(14).stiffness(280)}
-                      style={N.activeCircle}
-                    >
-                      <Text style={N.activeGlyph}>{s.glyph}</Text>
-                    </Animated.View>
-                  ) : (
-                    <View style={N.idleBox}>
-                      <Text style={N.idleGlyph}>{s.glyph}</Text>
-                      <Text style={N.idleLabel}>{s.label}</Text>
-                    </View>
-                  )}
+              <View key="plus" style={N.slot}>
+                <BouncyPress onPress={onPlus} style={N.plusCircle}>
+                  <Text style={N.plusGlyph}>+</Text>
                 </BouncyPress>
               </View>
             );
-          })}
-        </View>
+          }
+          const active = tab === s.key;
+          return (
+            <View key={s.key} style={N.slot}>
+              <BouncyPress onPress={() => setTab(s.key)} style={N.iconTouch}>
+                <Animated.View
+                  key={active ? `a-${tab}` : `i-${s.key}`}
+                  entering={ZoomIn.springify().damping(15).stiffness(300)}
+                >
+                  <s.Icon color={active ? CREAM : DIM} />
+                </Animated.View>
+              </BouncyPress>
+            </View>
+          );
+        })}
       </View>
     </View>
   );
 }
 
 const N = StyleSheet.create({
-  wrap: { paddingHorizontal: 14, paddingTop: 20, paddingBottom: 16, backgroundColor: 'transparent' },
-  stage: { height: BAR_H },
-  svg: { position: 'absolute', top: 0, left: 0 },
-  row: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row' },
-  slot: { alignItems: 'center', justifyContent: 'center' },
-  slotTouch: { alignItems: 'center', justifyContent: 'center', width: '100%', height: '100%' },
-  activeCircle: {
-    width: 60,
-    height: 60,
+  wrap: {
+    paddingHorizontal: 14,
+    paddingTop: 36,
+    paddingBottom: 16,
+    backgroundColor: 'transparent',
+  },
+  bar: {
+    flexDirection: 'row',
+    backgroundColor: BAR_BG,
     borderRadius: 30,
     borderCurve: 'continuous',
-    backgroundColor: CIRCLE_BG,
+    height: BAR_H,
     alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -35,
+    paddingHorizontal: 10,
     shadowColor: '#000',
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 5,
+    shadowOpacity: 0.28,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
-  activeGlyph: { fontSize: 24, color: ICON_INK, fontWeight: '700' },
-  idleBox: { alignItems: 'center', justifyContent: 'center', marginTop: 10 },
-  idleGlyph: { fontSize: 22, color: ICON_IDLE, fontWeight: '700' },
-  idleLabel: { color: LABEL_IDLE, fontSize: 7, fontWeight: '800', letterSpacing: 1, marginTop: 3 },
+  slot: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  iconTouch: { alignItems: 'center', justifyContent: 'center', padding: 10 },
   plusCircle: {
-    width: 58,
-    height: 58,
-    borderRadius: 29,
+    width: 64,
+    height: 64,
+    borderRadius: 32,
     borderCurve: 'continuous',
-    backgroundColor: '#F5F3EF',
+    backgroundColor: '#E9E9EA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: -30,
+    marginTop: -48,
     shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 5 },
     elevation: 6,
   },
-  plusGlyph: { fontSize: 30, color: '#1D1E22', fontWeight: '400', marginTop: -3 },
+  plusGlyph: { fontSize: 32, color: '#1D1E22', fontWeight: '300', marginTop: -3 },
 });
