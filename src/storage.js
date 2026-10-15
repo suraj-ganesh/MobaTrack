@@ -1,79 +1,230 @@
+// Offline persistence (AsyncStorage). All slices validated on load.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { normAvatar } from './avatars';
+import { CATS, CURRENCIES, DEFAULT_RATES, isISODate, todayISO, uid } from './theme';
 
-const KEYS = {
-  transactions: 'mobatrack_transactions_v1',
-  goals: 'mobatrack_goals_v1',
-  settings: 'mobatrack_settings_v1',
+const K = {
+  transactions: 'fintrack_tx_v2',
+  goals: 'fintrack_goals_v2',
+  budgets: 'fintrack_budgets_v2',
+  plans: 'fintrack_plans_v2',
+  recurring: 'fintrack_recurring_v2',
+  learned: 'fintrack_learned_v2',
+  settings: 'fintrack_settings_v2',
 };
 
-const DEFAULT_SETTINGS = { currency: 'Rs.', name: 'Parzavel', avatar: 'm1' };
+export const DEFAULT_SETTINGS = {
+  name: '',
+  baseCurrency: 'NPR',
+  rates: { ...DEFAULT_RATES },
+  pinHash: null,
+  pinSalt: null,
+  totpSecret: null,
+  totpEnabled: false,
+};
 
-function safeParse(raw, fallback) {
+function parse(raw, fb) {
   try {
-    if (!raw) return fallback;
+    if (!raw) return fb;
     const v = JSON.parse(raw);
-    return v ?? fallback;
+    return v ?? fb;
   } catch {
-    return fallback;
+    return fb;
   }
 }
 
-function cleanSettings(v) {
-  if (v && typeof v === 'object') {
-    return {
-      currency: String(v.currency || 'Rs.').slice(0, 6) || 'Rs.',
-      name: String(v.name || 'Parzavel').slice(0, 60) || 'Parzavel',
-      avatar: normAvatar(v.avatar),
-    };
+function cleanCat(c, type) {
+  const list = type === 'income' ? CATS.income : CATS.expense;
+  return list.includes(c) ? c : type === 'income' ? 'Other' : 'Other';
+}
+
+export function cleanTransactions(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const t of list) {
+    if (!t || typeof t !== 'object') continue;
+    const amount = Number(t.amount);
+    if (!Number.isFinite(amount) || amount <= 0) continue;
+    const type = t.type === 'income' ? 'income' : 'expense';
+    const items = Array.isArray(t.items)
+      ? t.items
+          .filter((i) => i && Number(i.amount) > 0)
+          .map((i) => ({
+            label: String(i.label ?? '').slice(0, 60),
+            amount: Number(i.amount),
+            category: cleanCat(i.category, 'expense'),
+          }))
+      : [];
+    out.push({
+      id: String(t.id ?? uid()),
+      amount,
+      currency: CURRENCIES.includes(t.currency) ? t.currency : 'USD',
+      type,
+      category: cleanCat(t.category, type),
+      merchant: String(t.merchant ?? '').slice(0, 80),
+      note: String(t.note ?? '').slice(0, 140),
+      date: isISODate(t.date) ? t.date : todayISO(),
+      items,
+    });
   }
-  return { ...DEFAULT_SETTINGS };
+  return out;
+}
+
+export function cleanGoals(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const g of list) {
+    if (!g || typeof g !== 'object') continue;
+    const name = String(g.name ?? '').trim().slice(0, 60);
+    const target = Number(g.target);
+    if (!name || !Number.isFinite(target) || target <= 0) continue;
+    const saved = Number(g.saved);
+    out.push({
+      id: String(g.id ?? uid()),
+      name,
+      target,
+      saved: Number.isFinite(saved) ? Math.min(target, Math.max(0, saved)) : 0,
+      currency: CURRENCIES.includes(g.currency) ? g.currency : 'USD',
+      deadline: /^\d{4}-\d{2}$/.test(String(g.deadline ?? '')) ? g.deadline : null,
+    });
+  }
+  return out;
+}
+
+export function cleanBudgets(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const b of list) {
+    if (!b || typeof b !== 'object') continue;
+    const cap = Number(b.cap);
+    if (!CATS.expense.includes(b.category) || !Number.isFinite(cap) || cap <= 0) continue;
+    out.push({
+      id: String(b.id ?? uid()),
+      category: b.category,
+      cap,
+      period: b.period === 'weekly' ? 'weekly' : 'monthly',
+    });
+  }
+  return out;
+}
+
+export function cleanPlans(obj) {
+  if (!obj || typeof obj !== 'object') return {};
+  const out = {};
+  for (const [mk, plan] of Object.entries(obj)) {
+    if (!/^\d{4}-\d{2}$/.test(mk) || !plan || typeof plan !== 'object') continue;
+    const p = {};
+    for (const [cat, amt] of Object.entries(plan)) {
+      if (CATS.expense.includes(cat) && Number.isFinite(Number(amt)) && Number(amt) > 0) {
+        p[cat] = Number(amt);
+      }
+    }
+    out[mk] = p;
+  }
+  return out;
+}
+
+const FREQS = ['weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'];
+
+export function cleanRecurring(list) {
+  if (!Array.isArray(list)) return [];
+  const out = [];
+  for (const r of list) {
+    if (!r || typeof r !== 'object') continue;
+    const amount = Number(r.amount);
+    if (!Number.isFinite(amount) || amount <= 0 || !isISODate(r.nextDate)) continue;
+    const type = r.type === 'income' ? 'income' : 'expense';
+    out.push({
+      id: String(r.id ?? uid()),
+      label: String(r.label ?? '').trim().slice(0, 80) || 'Recurring',
+      amount,
+      currency: CURRENCIES.includes(r.currency) ? r.currency : 'USD',
+      type,
+      category: cleanCat(r.category, type),
+      frequency: FREQS.includes(r.frequency) ? r.frequency : 'monthly',
+      nextDate: r.nextDate,
+      active: r.active !== false,
+    });
+  }
+  return out;
+}
+
+export function cleanLearned(obj) {
+  if (!obj || typeof obj !== 'object') return {};
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    const key = String(k || '').toLowerCase().trim().slice(0, 60);
+    if (key && [...CATS.expense, ...CATS.income].includes(v)) out[key] = v;
+  }
+  return out;
+}
+
+export function cleanSettings(v) {
+  const d = DEFAULT_SETTINGS;
+  if (!v || typeof v !== 'object') return { ...d, rates: { ...d.rates } };
+  const rates = { ...DEFAULT_RATES, ...d.rates };
+  if (v.rates && typeof v.rates === 'object') {
+    for (const c of CURRENCIES) {
+      const r = Number(v.rates[c]);
+      if (Number.isFinite(r) && r > 0) rates[c] = r;
+    }
+  }
+  const base = CURRENCIES.includes(v.baseCurrency) ? v.baseCurrency : d.baseCurrency;
+  rates[base] = 1;
+  return {
+    name: String(v.name ?? '').slice(0, 60),
+    baseCurrency: base,
+    rates,
+    pinHash: typeof v.pinHash === 'string' ? v.pinHash : null,
+    pinSalt: typeof v.pinSalt === 'string' ? v.pinSalt : null,
+    totpSecret: typeof v.totpSecret === 'string' ? v.totpSecret : null,
+    totpEnabled: v.totpEnabled === true && typeof v.totpSecret === 'string',
+  };
 }
 
 export async function loadAll() {
   try {
-    const [tx, goals, settings] = await Promise.all([
-      AsyncStorage.getItem(KEYS.transactions),
-      AsyncStorage.getItem(KEYS.goals),
-      AsyncStorage.getItem(KEYS.settings),
+    const [tx, goals, budgets, plans, recurring, learned, settings] = await Promise.all([
+      AsyncStorage.getItem(K.transactions),
+      AsyncStorage.getItem(K.goals),
+      AsyncStorage.getItem(K.budgets),
+      AsyncStorage.getItem(K.plans),
+      AsyncStorage.getItem(K.recurring),
+      AsyncStorage.getItem(K.learned),
+      AsyncStorage.getItem(K.settings),
     ]);
-    const transactions = safeParse(tx, []);
-    const goalsList = safeParse(goals, []);
-    const parsedSettings = safeParse(settings, null);
     return {
-      transactions: Array.isArray(transactions) ? transactions : [],
-      goals: Array.isArray(goalsList) ? goalsList : [],
-      settings: cleanSettings(parsedSettings),
+      transactions: cleanTransactions(parse(tx, [])),
+      goals: cleanGoals(parse(goals, [])),
+      budgets: cleanBudgets(parse(budgets, [])),
+      plans: cleanPlans(parse(plans, {})),
+      recurring: cleanRecurring(parse(recurring, [])),
+      learned: cleanLearned(parse(learned, {})),
+      settings: cleanSettings(parse(settings, null)),
     };
   } catch {
-    return { transactions: [], goals: [], settings: { ...DEFAULT_SETTINGS } };
+    return {
+      transactions: [], goals: [], budgets: [], plans: {},
+      recurring: [], learned: {}, settings: cleanSettings(null),
+    };
   }
 }
 
-export async function saveTransactions(list) {
+async function save(key, val) {
   try {
-    await AsyncStorage.setItem(KEYS.transactions, JSON.stringify(list));
+    await AsyncStorage.setItem(key, JSON.stringify(val));
   } catch {}
 }
 
-export async function saveGoals(list) {
-  try {
-    await AsyncStorage.setItem(KEYS.goals, JSON.stringify(list));
-  } catch {}
-}
-
-export async function saveSettings(s) {
-  try {
-    await AsyncStorage.setItem(KEYS.settings, JSON.stringify(cleanSettings(s)));
-  } catch {}
-}
+export const saveTransactions = (l) => save(K.transactions, l);
+export const saveGoals = (l) => save(K.goals, l);
+export const saveBudgets = (l) => save(K.budgets, l);
+export const savePlans = (o) => save(K.plans, o);
+export const saveRecurring = (l) => save(K.recurring, l);
+export const saveLearned = (o) => save(K.learned, o);
+export const saveSettings = (s) => save(K.settings, cleanSettings(s));
 
 export async function clearAll() {
   try {
-    await AsyncStorage.multiRemove([KEYS.transactions, KEYS.goals, KEYS.settings]);
+    await AsyncStorage.multiRemove(Object.values(K));
   } catch {}
-}
-
-export function uid() {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }

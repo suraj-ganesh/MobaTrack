@@ -3,21 +3,21 @@
   "version": "1.0.0",
   "main": "index.js",
   "dependencies": {
+    "@expo-google-fonts/hanken-grotesk": "^0.4.3",
+    "@expo-google-fonts/jetbrains-mono": "^0.4.1",
+    "@expo/vector-icons": "^15.1.1",
     "@react-native-async-storage/async-storage": "2.2.0",
     "babel-preset-expo": "~57.0.0",
     "expo": "~57.0.21",
-    "expo-haptics": "~57.0.2",
-    "expo-linear-gradient": "~57.0.1",
+    "expo-blur": "^57.0.3",
+    "expo-font": "^57.0.4",
     "expo-status-bar": "~57.0.1",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-native": "0.86.3",
-    "react-native-gesture-handler": "~2.32.0",
-    "react-native-reanimated": "4.5.1",
     "react-native-safe-area-context": "~5.7.0",
-    "react-native-svg": "15.15.4",
-    "react-native-web": "^0.21.2",
-    "react-native-worklets": "0.10.1"
+    "react-native-svg": "^15.15.5",
+    "react-native-web": "^0.21.2"
   },
   "scripts": {
     "start": "expo start",
@@ -25,5 +25,18 @@
     "ios": "expo start --ios",
     "web": "expo start --web"
   },
-  "private": true
+  "private": true,
+  "description": "Minimal black & white mobile finance app. Inspired by FinTrack, without eSewa gateway. Offline only (AsyncStorage). AI suggestions are local rule-based balance tips.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/suraj-ganesh/MobaTrack.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/suraj-ganesh/MobaTrack/issues"
+  },
+  "homepage": "https://github.com/suraj-ganesh/MobaTrack#readme"
 }
