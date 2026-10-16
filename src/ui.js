@@ -245,16 +245,17 @@ export function MonthNav({ label, onPrev, onNext }) {
   );
 }
 
-// Exact app header: h56, logo 24 r4 black "M", title 15/600,
-// settings gear + bell, 44px touch targets.
-export function AppHeader({ title, onBell, onSettings }) {
+// Slim greeting header: personal hello, no page name.
+// Uses the profile name; falls back to Suraj.
+export function SlimHeader({ name, onBell, onSettings }) {
+  const hello = `Hi ${String(name || '').trim() || 'Suraj'}`;
   return (
     <View style={U.appHeader}>
       <View style={U.brandRow}>
         <View style={U.logo}>
           <Text style={U.logoText}>M</Text>
         </View>
-        <Text style={U.headerTitle}>{title}</Text>
+        <Text style={U.headerTitle}>{hello}</Text>
       </View>
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
         <Pressable onPress={onSettings} hitSlop={8} style={U.iconBtn} accessibilityLabel="Settings">
@@ -265,6 +266,51 @@ export function AppHeader({ title, onBell, onSettings }) {
         </Pressable>
       </View>
     </View>
+  );
+}
+
+// Back-compat alias (ignores the old per-page title).
+export function AppHeader({ name, onBell, onSettings }) {
+  return <SlimHeader name={name} onBell={onBell} onSettings={onSettings} />;
+}
+
+// Bento grid: systematic mixed-size tiles on a 2-column rhythm.
+// Default child = half-width cell; <X span={2}> = full-width feature tile.
+// The span prop is stripped before render so it never reaches native views.
+export function Bento({ children, style }) {
+  const kids = React.Children.toArray(children).filter((k) => k);
+  if (!kids.length) return null;
+  return (
+    <View style={[U.bento, style]}>
+      {kids.map((k, i) => {
+        const wide = !!(k.props && k.props.span === 2);
+        const clean = k.props && k.props.span ? React.cloneElement(k, { span: undefined }) : k;
+        return (
+          <View key={i} style={[U.bentoCell, wide && U.bentoCellWide]}>
+            {clean}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+// Smooth tab/page transition: gentle fade + rise, transform/opacity only.
+export function FadeSlide({ id, children, style }) {
+  const opacity = React.useRef(new Animated.Value(0)).current;
+  const dy = React.useRef(new Animated.Value(10)).current;
+  React.useEffect(() => {
+    opacity.setValue(0);
+    dy.setValue(10);
+    Animated.parallel([
+      Animated.timing(opacity, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      Animated.timing(dy, { toValue: 0, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+    ]).start();
+  }, [id, opacity, dy]);
+  return (
+    <Animated.View style={[{ opacity, transform: [{ translateY: dy }] }, style]}>
+      {children}
+    </Animated.View>
   );
 }
 
@@ -285,7 +331,7 @@ export function FloatingDock({ tab, onGo, onAdd }) {
   const item = (d) => {
     const active = tab === d.id;
     return (
-      <Pressable key={d.id} onPress={() => onGo(d.id)} style={U.dockTab}>
+      <Pressable key={d.id} onPress={() => onGo(d.id)} style={[U.dockTab, active && U.dockTabActive]}>
         <I name={d.icon} size={18} color={active ? DS.primary : DS.onVariant} />
         <Text style={[U.dockLabel, active && U.dockLabelActive]}>{d.label}</Text>
       </Pressable>
@@ -470,7 +516,7 @@ export const U = StyleSheet.create({
   bell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   iconBtn: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
 
-  dockWrap: { position: 'absolute', left: 16, right: 16, bottom: 12, alignItems: 'center' },
+  dockWrap: { position: 'absolute', left: 16, right: 16, bottom: 26, alignItems: 'center' },
   dock: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     width: '100%', maxWidth: 384,
@@ -481,9 +527,13 @@ export const U = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 32, elevation: 10,
     overflow: 'visible',
   },
-  dockTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6 },
+  dockTab: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 6, borderRadius: 999 },
+  dockTabActive: { backgroundColor: DS.low },
   dockLabel: { ...T.labelSm, color: DS.onVariant, marginTop: 1 },
   dockLabelActive: { color: DS.primary },
+  bento: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -4, marginVertical: 2 },
+  bentoCell: { width: '50%', paddingHorizontal: 4, paddingVertical: 4 },
+  bentoCellWide: { width: '100%' },
   fabSlot: { paddingHorizontal: 6, alignItems: 'center', justifyContent: 'flex-end', height: '100%' },
   fab: {
     borderRadius: 999, backgroundColor: DS.primary,

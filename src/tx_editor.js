@@ -1,7 +1,8 @@
 // Transaction editor: manual entry + itemized receipt splits + auto-categorization.
+// NPR-only: every amount is in rupees.
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { C, CATS, CURRENCIES, font, isISODate, todayISO, uid } from './theme';
+import { C, CATS, font, isISODate, todayISO, uid } from './theme';
 import { suggestCategory } from './categorize';
 import { Btn, Chip, Field, Sheet, confirmAct, notify } from './ui';
 
@@ -47,9 +48,8 @@ function ItemRows({ items, onChange }) {
   );
 }
 
-export function TxEditor({ visible, initial, base, defaultCurrency, learned, onClose, onSave, onDelete, onLearn }) {
+export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete, onLearn }) {
   const [amount, setAmount] = useState('');
-  const [currency, setCurrency] = useState(defaultCurrency);
   const [type, setType] = useState('expense');
   const [category, setCategory] = useState('Food & Drink');
   const [manualCat, setManualCat] = useState(false);
@@ -63,7 +63,6 @@ export function TxEditor({ visible, initial, base, defaultCurrency, learned, onC
     if (visible) {
       const t = initial || {};
       setAmount(t.amount != null ? String(t.amount) : '');
-      setCurrency(t.currency || defaultCurrency);
       const ty = t.type === 'income' ? 'income' : 'expense';
       setType(ty);
       setCategory(t.category || (ty === 'income' ? 'Salary' : 'Food & Drink'));
@@ -74,7 +73,7 @@ export function TxEditor({ visible, initial, base, defaultCurrency, learned, onC
       setItems(Array.isArray(t.items) ? t.items.map((i) => ({ ...i, amount: String(i.amount) })) : []);
       setShowItems(Array.isArray(t.items) && t.items.length > 0);
     }
-  }, [visible, initial, defaultCurrency]);
+  }, [visible, initial]);
 
   // Smart suggest: auto-pick a category from merchant/note until user overrides.
   useEffect(() => {
@@ -108,7 +107,7 @@ export function TxEditor({ visible, initial, base, defaultCurrency, learned, onC
     const tx = {
       id: (initial && initial.id) || uid(),
       amount: total,
-      currency: CURRENCIES.includes(currency) ? currency : defaultCurrency,
+      currency: 'NPR',
       type,
       category: cats.includes(category) ? category : type === 'income' ? 'Other' : 'Other',
       merchant: merchant.trim().slice(0, 80),
@@ -140,15 +139,9 @@ export function TxEditor({ visible, initial, base, defaultCurrency, learned, onC
           />
         ))}
       </View>
-      <Field label={`Amount (${currency})`} placeholder="0.00" keyboardType="numeric"
+      <Field label="Amount (Rs.)" placeholder="0.00" keyboardType="numeric"
         value={amount} onChangeText={(v) => setAmount(numOnly(v))} returnKeyType="done" />
-      <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, marginBottom: 2, fontFamily: font.medium }}>Currency</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
-        {CURRENCIES.map((c) => (
-          <Chip key={c} label={c} active={currency === c} onPress={() => setCurrency(c)} />
-        ))}
-      </View>
-      <Field label="Merchant / source" placeholder="e.g. Whole Foods, Employer"
+      <Field label="Merchant / source" placeholder="e.g. Bhat Bhateni, Employer"
         value={merchant} onChangeText={setMerchant} maxLength={80} />
       <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, marginBottom: 2, fontFamily: font.medium }}>
         Category{!manualCat ? ' (auto-suggested)' : ''}

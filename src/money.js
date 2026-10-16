@@ -1,25 +1,18 @@
-// Multi-currency conversion + category allocation (receipt splits).
-// All totals in the app flow through these helpers so every figure is in
-// the user's base currency.
+// Simple NPR-only totals. Everything in the app is in rupees, so there is
+// no currency conversion anywhere - what you enter is what gets counted.
 
-export function toBase(amount, code, base, rates) {
-  const n = Number(amount) || 0;
-  if (!n) return 0;
-  if (!code || code === base) return n;
-  const r = Number(rates?.[code]);
-  if (!Number.isFinite(r) || r <= 0) return n;
-  return n / r;
+export function toBase(amount) {
+  return Number(amount) || 0;
 }
 
 /**
- * Split a transaction into {category, amount(base)} parts.
+ * Split a transaction into {category, amount} parts.
  * Expense receipts with line items allocate each item to its own category;
  * any remainder stays under the transaction category.
  */
-export function allocations(tx, base, rates) {
-  const conv = (a) => toBase(a, tx.currency, base, rates);
+export function allocations(tx) {
   if (tx.type !== 'expense' || !Array.isArray(tx.items) || tx.items.length === 0) {
-    return [{ category: tx.category, amount: conv(tx.amount) }];
+    return [{ category: tx.category, amount: Number(tx.amount) || 0 }];
   }
   const out = [];
   let itemSum = 0;
@@ -27,20 +20,20 @@ export function allocations(tx, base, rates) {
     const a = Number(it.amount) || 0;
     if (a <= 0) continue;
     itemSum += a;
-    out.push({ category: it.category || tx.category, amount: conv(a) });
+    out.push({ category: it.category || tx.category, amount: a });
   }
   const rest = Number(tx.amount) - itemSum;
-  if (rest > 0.004) out.push({ category: tx.category, amount: conv(rest) });
-  return out.length ? out : [{ category: tx.category, amount: conv(tx.amount) }];
+  if (rest > 0.004) out.push({ category: tx.category, amount: rest });
+  return out.length ? out : [{ category: tx.category, amount: Number(tx.amount) || 0 }];
 }
 
-/** Sum allocations of txs passing pred → {total, byCat} in base currency. */
-export function sumAlloc(txList, base, rates, pred) {
+/** Sum allocations of txs passing pred → {total, byCat} in rupees. */
+export function sumAlloc(txList, _base, _rates, pred) {
   const byCat = {};
   let total = 0;
   for (const tx of txList || []) {
     if (pred && !pred(tx)) continue;
-    for (const a of allocations(tx, base, rates)) {
+    for (const a of allocations(tx)) {
       byCat[a.category] = (byCat[a.category] || 0) + a.amount;
       total += a.amount;
     }
@@ -48,10 +41,10 @@ export function sumAlloc(txList, base, rates, pred) {
   return { total, byCat };
 }
 
-export function balanceOf(txList, base, rates) {
+export function balanceOf(txList) {
   let b = 0;
   for (const tx of txList || []) {
-    const v = toBase(tx.amount, tx.currency, base, rates);
+    const v = Number(tx.amount) || 0;
     b += tx.type === 'income' ? v : -v;
   }
   return b;

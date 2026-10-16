@@ -1,10 +1,9 @@
-// Home Dashboard — EXACT Stitch screen 9ab1b6eb (Monochrome Financial Atelier).
-// Same structure, copy, tokens, metrics. Only numbers come from live data.
+// Home Dashboard - simple bento layout, NPR-only.
 import { Pressable, Text, View } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
 import { DS, fmt, font, T, monthKey, shiftMonth, todayISO, todayLabelLong } from './theme';
 import { balanceOf, sumAlloc, toBase } from './money';
-import { Card, I, Label, Prog, U } from './ui';
+import { Bento, Card, I, Label, Prog, U } from './ui';
 
 function txIcon(t) {
   const s = `${t.merchant || ''} ${t.note || ''} ${t.category || ''}`.toLowerCase();
@@ -21,12 +20,21 @@ function txIcon(t) {
   return 'receipt-long';
 }
 
-const QUICK = [
-  { label: 'Transfer', icon: 'sync-alt', go: 'add' },
-  { label: 'Import', icon: 'file-upload', go: 'More' },
-  { label: 'Audit', icon: 'fact-check', go: 'Activity' },
-  { label: 'Reports', icon: 'insights', go: 'More' },
-];
+
+
+function MiniTile({ label, value, icon }) {
+  return (
+    <Card style={{ padding: 14, marginVertical: 0 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: DS.low, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+          <I name={icon} size={14} color={DS.on} />
+        </View>
+        <Label>{label}</Label>
+      </View>
+      <Text style={[T.curMd, { color: DS.primary, marginTop: 8 }]} numberOfLines={1}>{value}</Text>
+    </Card>
+  );
+}
 
 export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, onQuickAdd, onGo, onPostDue }) {
   const base = settings.baseCurrency;
@@ -53,6 +61,8 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
   const planned = capTotal > 0 ? capTotal : Math.max(income, expense, 0);
   const allocPct = planned > 0 ? Math.min(100, (spent / planned) * 100) : 0;
 
+  const savedTotal = (goals || []).reduce((s, g) => s + (Number(g.saved) || 0), 0);
+
   const flagIds = Object.keys(flags || {});
   const firstFlagTx = flagIds.length ? txs.find((t) => t.id === flagIds[0]) : null;
   const dueCount = (recurrings || []).filter((r) => r.active !== false && r.nextDate <= today).length;
@@ -60,15 +70,15 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
 
   const banner = firstFlagTx
     ? {
-        title: '1 Outlier Detected',
+        title: 'Unusual spending',
         meta: (firstFlagTx.merchant || firstFlagTx.category || 'Transaction'),
-          desc: `Spike detected (${fmt(toBase(firstFlagTx.amount, firstFlagTx.currency, base, rates))} vs baseline)`,
+        desc: `${fmt(toBase(firstFlagTx.amount, firstFlagTx.currency, base, rates), base)} is much higher than usual`,
         btn: 'Review',
         act: () => onGo('Activity'),
       }
     : dueCount > 0
       ? {
-          title: `${dueCount} Bill${dueCount > 1 ? 's' : ''} Due`,
+          title: `${dueCount} bill${dueCount > 1 ? 's' : ''} due`,
           meta: 'Recurring',
           desc: 'Scheduled bills are ready to record',
           btn: 'Record',
@@ -76,33 +86,19 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
         }
       : null;
 
-  const goQuick = (q) => {
-    if (q.go === 'add') onQuickAdd();
-    else onGo(q.go);
-  };
-
   return (
     <View>
-      {/* Date + status */}
+      {/* Date */}
       <View style={[U.hRow, { paddingTop: 4 }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <View style={{ width: 6, height: 6, borderRadius: 999, backgroundColor: DS.primary, marginRight: 6 }} />
           <Text style={[T.labelSm, { color: DS.onVariant }]}>{todayLabelLong()}</Text>
         </View>
-        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.low, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-          <I name="lock" size={12} color={DS.onVariant} />
-          <Text style={[T.labelSm, { color: DS.onVariant, marginLeft: 4 }]}>SYNCHRONIZED</Text>
-        </View>
       </View>
 
-      {/* Total balance hero */}
+      {/* Balance hero */}
       <Card>
-        <View style={U.hRow}>
-          <Label>Total Balance</Label>
-          <View style={{ backgroundColor: DS.high, borderRadius: DS.radius.xs, paddingHorizontal: 6, paddingVertical: 2 }}>
-            <Text style={[T.labelSm, { color: DS.on }]}>LEDGER 01</Text>
-          </View>
-        </View>
+        <Label>Balance</Label>
         <Text style={[T.curLg, { color: DS.primary, marginTop: 4 }]}>
           {balance < 0 ? '-' : ''}{fmt(Math.abs(balance), base)}
         </Text>
@@ -115,19 +111,36 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
               </View>
             )}
             <Text style={[T.bodySm, { color: DS.onVariant }]} numberOfLines={1}>
-              {showDelta ? `vs. ${fmt(Math.abs(prevNet), base)} last month` : 'vs. no prior month'}
+              {showDelta ? `vs ${fmt(Math.abs(prevNet), base)} last month` : 'Your money at a glance'}
             </Text>
           </View>
           <Svg width={64} height={16} viewBox="0 0 64 16">
             <Path d="M1 13L14 10L26 12L38 6L50 8L63 2" stroke={DS.primary} strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" fill="none" />
           </Svg>
         </View>
-        <Text style={[T.labelSm, { color: DS.onVariant, opacity: 0.8, marginTop: 8 }]}>
-          Audited live • Zero discrepancies
-        </Text>
       </Card>
 
-      {/* Outlier / due banner */}
+      {/* Bento: halves -> wide feature -> halves */}
+      <Bento>
+        <MiniTile label="Income" value={fmt(income, base)} icon="arrow-downward" />
+        <MiniTile label="Expenses" value={fmt(expense, base)} icon="receipt-long" />
+        <Card span={2} style={{ padding: 14, marginVertical: 0 }}>
+          <View style={[U.hRow]}>
+            <Label>Spent this month</Label>
+            <Text style={[T.labelSm, { color: DS.onVariant }]}>{allocPct.toFixed(0)}% of plan</Text>
+          </View>
+          <Text style={[T.curMd, { color: DS.primary, marginTop: 6 }]} numberOfLines={1}>
+            {fmt(spent, base)} <Text style={[T.bodySm, { color: DS.onVariant }]}>/ {fmt(planned, base)}</Text>
+          </Text>
+          <View style={{ marginTop: 8 }}>
+            <Prog pct={allocPct} h={6} track={DS.highest} />
+          </View>
+        </Card>
+        <MiniTile label="Saved" value={fmt(savedTotal, base)} icon="flag" />
+        <MiniTile label="Goals" value={`${(goals || []).length} active`} icon="donut-small" />
+      </Bento>
+
+      {/* Alert banner */}
       {!!banner && (
         <Card style={{ padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -149,63 +162,19 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
         </Card>
       )}
 
-      {/* Monthly allocation */}
-      <Card>
-        <View style={U.hRow}>
-          <Label>Monthly Allocation</Label>
-          <View style={{ backgroundColor: DS.high, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-            <Text style={[T.curSm, { color: DS.on }]}>{allocPct.toFixed(0)}%</Text>
-          </View>
-        </View>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 6 }}>
-          <Text style={[T.curMd, { color: DS.primary }]}>{fmt(spent, base)}</Text>
-          <Text style={[T.bodySm, { color: DS.onVariant }]}> / {fmt(planned, base)}</Text>
-          <View style={{ flex: 1 }} />
-          <Text style={[T.labelSm, { color: DS.onVariant }]}>ENVELOPE ACTIVE</Text>
-        </View>
-        <View style={{ marginTop: 8 }}>
-          <Prog pct={allocPct} h={6} track={DS.highest} />
-        </View>
-        <View style={[U.hRow, { marginTop: 8 }]}>
-          <Text style={[T.bodySm, { color: DS.onVariant }]}>{fmt(Math.max(0, planned - spent), base)} remaining</Text>
-          <Text style={[T.labelSm, { color: DS.onVariant }]}>Zero-base budget</Text>
-        </View>
-      </Card>
-
-      {/* Quick tools */}
-      <View style={{ flexDirection: 'row', marginHorizontal: -2, marginTop: 6 }}>
-        {QUICK.map((q) => (
-          <View key={q.label} style={{ flex: 1, marginHorizontal: 2 }}>
-            <Pressable onPress={() => goQuick(q)} style={{ backgroundColor: DS.glassCard, borderWidth: 1, borderColor: DS.hairline, borderTopColor: 'rgba(255,255,255,0.95)', borderRadius: DS.radius.sm, padding: 6, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 }}>
-              <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: DS.low, alignItems: 'center', justifyContent: 'center', marginBottom: 4 }}>
-                <I name={q.icon} size={16} color={DS.on} />
-              </View>
-              <Text style={[T.labelSm, { color: DS.on }]}>{q.label}</Text>
-            </Pressable>
-          </View>
-        ))}
-      </View>
-
       {/* Recent activity */}
-      <View style={{ marginTop: 16 }}>
+      <View style={{ marginTop: 12 }}>
         <View style={[U.hRow, { paddingHorizontal: 4, marginBottom: 4 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={[T.hSm, { color: DS.on }]}>Recent Activity</Text>
-            {recent.length > 0 && (
-              <View style={{ backgroundColor: DS.high, borderRadius: DS.radius.xs, paddingHorizontal: 6, paddingVertical: 1, marginLeft: 6 }}>
-                <Text style={[T.labelSm, { color: DS.onVariant }]}>{recent.length} NEW</Text>
-              </View>
-            )}
-          </View>
+          <Text style={[T.hSm, { color: DS.on }]}>Recent</Text>
           <Pressable onPress={() => onGo('Activity')} style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={[T.labelSm, { color: DS.onVariant }]}>See All</Text>
+            <Text style={[T.labelSm, { color: DS.onVariant }]}>See all</Text>
             <I name="chevron-right" size={12} color={DS.onVariant} />
           </Pressable>
         </View>
         <Card style={{ paddingHorizontal: 0, paddingVertical: 2 }}>
           {recent.length === 0 && (
             <Text style={[T.bodySm, { color: DS.onVariant, textAlign: 'center', paddingVertical: 18 }]}>
-              No transactions yet — tap + to add your first one.
+              Nothing yet - tap + to add your first entry.
             </Text>
           )}
           {recent.map((t, i) => (
@@ -226,10 +195,7 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
                 </View>
                 <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
                   <Text style={[T.curMd, { color: DS.primary }]} numberOfLines={1}>
-                    {t.type === 'income' ? '+' : '-'}{fmt(toBase(t.amount, t.currency, base, rates))}
-                  </Text>
-                  <Text style={[T.labelSm, { color: DS.onVariant, marginTop: 2 }]}>
-                    {t.type === 'income' ? 'CLEARED' : 'POSTED'}
+                    {t.type === 'income' ? '+' : '-'}{fmt(toBase(t.amount, t.currency, base, rates), base)}
                   </Text>
                 </View>
               </View>

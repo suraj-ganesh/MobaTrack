@@ -1,0 +1,57 @@
+# Builds an installable Android APK on EAS and attaches it to a GitHub Release.
+#
+# How to release:
+#   1. One-time setup: run `npx eas init` locally (links the Expo project),
+#      then add your Expo access token as a repo secret named EXPO_TOKEN
+#      (GitHub repo → Settings → Secrets and variables → Actions).
+#   2. Tag and push:  git tag v1.0.0; git push origin v1.0.0
+#   3. Download MobaTrack.apk from the Releases page and install it.
+#
+# You can also run this workflow manually from the Actions tab.
+
+name: Android APK
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build APK on EAS
+        run: eas build --platform android --profile preview --non-interactive --json > build.json
+
+      - name: Download APK
+        run: |
+          URL=$(jq -r '.artifacts.buildUrl' build.json)
+          curl -L --fail -o MobaTrack.apk "$URL"
+          ls -la MobaTrack.apk
+
+      - name: Attach APK to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: MobaTrack.apk

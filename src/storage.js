@@ -1,6 +1,9 @@
 // Offline persistence (AsyncStorage). All slices validated on load.
+// NPR-only: every amount is in rupees, no currencies or exchange rates.
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { CATS, CURRENCIES, DEFAULT_RATES, isISODate, todayISO, uid } from './theme';
+import { CATS, isISODate, todayISO, uid } from './theme';
+
+export const BASE_CURRENCY = 'NPR';
 
 const K = {
   transactions: 'fintrack_tx_v2',
@@ -13,9 +16,9 @@ const K = {
 };
 
 export const DEFAULT_SETTINGS = {
-  name: '',
-  baseCurrency: 'NPR',
-  rates: { ...DEFAULT_RATES },
+  name: 'Suraj',
+  baseCurrency: BASE_CURRENCY,
+  rates: { [BASE_CURRENCY]: 1 },
   pinHash: null,
   pinSalt: null,
   totpSecret: null,
@@ -57,7 +60,7 @@ export function cleanTransactions(list) {
     out.push({
       id: String(t.id ?? uid()),
       amount,
-      currency: CURRENCIES.includes(t.currency) ? t.currency : 'USD',
+      currency: BASE_CURRENCY,
       type,
       category: cleanCat(t.category, type),
       merchant: String(t.merchant ?? '').slice(0, 80),
@@ -78,13 +81,16 @@ export function cleanGoals(list) {
     const target = Number(g.target);
     if (!name || !Number.isFinite(target) || target <= 0) continue;
     const saved = Number(g.saved);
+    const rawDl = String(g.deadline ?? '');
+    // Full-date deadlines (YYYY-MM-DD); legacy month-only ones become the 1st.
+    const deadline = isISODate(rawDl) ? rawDl : (/^\d{4}-\d{2}$/.test(rawDl) ? `${rawDl}-01` : null);
     out.push({
       id: String(g.id ?? uid()),
       name,
       target,
       saved: Number.isFinite(saved) ? Math.min(target, Math.max(0, saved)) : 0,
-      currency: CURRENCIES.includes(g.currency) ? g.currency : 'USD',
-      deadline: /^\d{4}-\d{2}$/.test(String(g.deadline ?? '')) ? g.deadline : null,
+      currency: BASE_CURRENCY,
+      deadline,
     });
   }
   return out;
@@ -137,7 +143,7 @@ export function cleanRecurring(list) {
       id: String(r.id ?? uid()),
       label: String(r.label ?? '').trim().slice(0, 80) || 'Recurring',
       amount,
-      currency: CURRENCIES.includes(r.currency) ? r.currency : 'USD',
+      currency: BASE_CURRENCY,
       type,
       category: cleanCat(r.category, type),
       frequency: FREQS.includes(r.frequency) ? r.frequency : 'monthly',
@@ -158,22 +164,15 @@ export function cleanLearned(obj) {
   return out;
 }
 
+// NPR-only: the base currency is always locked. Old installs may have stored
+// foreign base currencies or exchange-rate tables - those are ignored.
 export function cleanSettings(v) {
   const d = DEFAULT_SETTINGS;
-  if (!v || typeof v !== 'object') return { ...d, rates: { ...d.rates } };
-  const rates = { ...DEFAULT_RATES, ...d.rates };
-  if (v.rates && typeof v.rates === 'object') {
-    for (const c of CURRENCIES) {
-      const r = Number(v.rates[c]);
-      if (Number.isFinite(r) && r > 0) rates[c] = r;
-    }
-  }
-  const base = CURRENCIES.includes(v.baseCurrency) ? v.baseCurrency : d.baseCurrency;
-  rates[base] = 1;
+  if (!v || typeof v !== 'object') return { ...d, rates: { [BASE_CURRENCY]: 1 } };
   return {
     name: String(v.name ?? '').slice(0, 60),
-    baseCurrency: base,
-    rates,
+    baseCurrency: BASE_CURRENCY,
+    rates: { [BASE_CURRENCY]: 1 },
     pinHash: typeof v.pinHash === 'string' ? v.pinHash : null,
     pinSalt: typeof v.pinSalt === 'string' ? v.pinSalt : null,
     totpSecret: typeof v.totpSecret === 'string' ? v.totpSecret : null,

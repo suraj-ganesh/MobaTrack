@@ -18,7 +18,24 @@ npx expo start
 ```
 Scan QR with Expo Go (Android / iOS).
 
-## Build
+## Download (install on your phone)
+1. Go to the **Releases** page on GitHub.
+2. Download **MobaTrack.apk** from the latest release.
+3. Open it on your Android phone and install (allow "install unknown apps" if asked).
+
+A fresh APK is built automatically every time a `v*` tag is pushed
+(see `.github/workflows/android-apk.yml`).
+
+### Publish a new release
+```sh
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+First-time setup only: run `npx eas init`, then add an Expo access token
+as the `EXPO_TOKEN` secret (repo Settings → Secrets and variables → Actions).
+
+## Build locally
 - Android APK: `npx eas build -p android --profile preview`
 - Or: `npx expo run:android`
 

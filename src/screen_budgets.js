@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
 import { C, CATS, DS, fmt, font, T, monthKey, monthLong, shiftMonth, todayISO, daysLeftInMonth, uid, weekRange } from './theme';
 import { inDateRange, sumAlloc } from './money';
-import { Btn, Card, Chip, Empty, I, Label, MonthPill, Prog, Sheet, U, confirmAct, notify } from './ui';
+import { Bento, Btn, Card, Chip, Empty, I, Label, MonthPill, Prog, Sheet, U, confirmAct, notify } from './ui';
 
 function spentInWindow(b, txs, base, rates, today, mk) {
   const [f, t] = b.period === 'weekly' ? weekRange(today) : [`${mk}-01`, `${mk}-31`];
@@ -69,8 +69,17 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
   const rates = settings.rates;
   const [mk, setMk] = useState(monthKey(todayISO()));
   const [showForm, setShowForm] = useState(false);
+  const [showMonths, setShowMonths] = useState(false);
   const [editing, setEditing] = useState(null);
   const today = todayISO();
+
+  // Month picker options: past 11 months + current + next month.
+  const monthOptions = useMemo(() => {
+    const baseMk = monthKey(todayISO());
+    const out = [];
+    for (let i = -11; i <= 1; i++) out.push(shiftMonth(baseMk, i));
+    return out;
+  }, []);
 
   const rows = useMemo(() => {
     return (budgets || []).map((b) => {
@@ -102,7 +111,7 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
     <View>
       {/* Period switcher */}
       <View style={[U.hRow, { marginTop: 2 }]}>
-        <MonthPill label={monthLong(mk)} onPrev={() => { setMk(shiftMonth(mk, -1)); setDraft(null); }} onNext={() => { setMk(shiftMonth(mk, 1)); setDraft(null); }} />
+        <MonthPill label={monthLong(mk)} onPrev={() => { setMk(shiftMonth(mk, -1)); setDraft(null); }} onNext={() => { setMk(shiftMonth(mk, 1)); setDraft(null); }} onPress={() => setShowMonths(true)} />
         <View style={{ flexDirection: 'row' }}>
           <View style={{ width: 32, height: 32, borderRadius: 999, backgroundColor: DS.low, alignItems: 'center', justifyContent: 'center', marginLeft: 6, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 2, elevation: 1 }}>
             <I name="tune" size={16} color={DS.onVariant} />
@@ -122,18 +131,13 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
               <Label>Allocation Cadence</Label>
             </View>
             <Text style={[T.hLg, { color: DS.on }]}>
-              {overRows.length ? 'Rebalance Needed' : 'All Income Allocated'}
+              {overRows.length ? 'Over budget' : 'On track'}
             </Text>
-          </View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.primary, borderRadius: 999, paddingHorizontal: 10, paddingVertical: 4, marginLeft: 8 }}>
-            <I name="check-circle" size={14} color="#fff" />
-            <Text style={[T.labelSm, { color: '#fff', marginLeft: 4 }]}>ZERO-BASED</Text>
           </View>
         </View>
         <Text style={[T.bodyMd, { color: DS.onVariant, lineHeight: 20, marginTop: 8 }]}>
-          Every rupee has a defined job this month.{' '}
           <Text style={[T.curSm, { color: DS.on }]}>{fmt(monthSpent, base)}</Text> spent of{' '}
-          <Text style={[T.curSm, { color: DS.on }]}>{fmt(burnBase, base)}</Text> planned allocation.
+          <Text style={[T.curSm, { color: DS.on }]}>{fmt(burnBase, base)}</Text> planned.
         </Text>
         <View style={{ backgroundColor: DS.low, borderRadius: DS.radius.sm, padding: 12, marginTop: 12 }}>
           <View style={[U.hRow]}>
@@ -146,125 +150,57 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
             <Prog pct={burnPct} h={8} track={DS.highest} />
           </View>
           <View style={[U.hRow, { marginTop: 8 }]}>
-            <Text style={[T.curSm, { color: DS.onVariant }]}>{fmt(0, base)}</Text>
-            <Text style={[T.labelSm, { color: DS.onVariant }]}>{leftDays} days remaining</Text>
-            <Text style={[T.curSm, { color: DS.on }]}>{fmt(unspent, base)} unspent</Text>
+            <Text style={[T.bodySm, { color: DS.onVariant }]}>{fmt(Math.max(0, burnBase - monthSpent), base)} left</Text>
+            <Text style={[T.labelSm, { color: DS.onVariant }]}>{leftDays} days left</Text>
           </View>
         </View>
       </Card>
 
-      {/* Envelopes */}
+      {/* Envelopes bento */}
       <View style={{ marginTop: 16 }}>
         <View style={[U.hRow, { paddingHorizontal: 4, marginBottom: 4 }]}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Text style={[T.hSm, { color: DS.on }]}>Envelopes</Text>
-            <View style={{ backgroundColor: DS.high, borderRadius: 999, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
-              <Text style={[T.labelSm, { color: DS.on }]}>{rows.length} Active</Text>
-            </View>
-          </View>
-          <Text style={[T.labelSm, { color: DS.onVariant }]}>Tap to inspect ledger</Text>
+          <Text style={[T.hSm, { color: DS.on }]}>Envelopes</Text>
+          <Pressable onPress={() => { setEditing(null); setShowForm(true); }}>
+            <Text style={[T.labelSm, { color: DS.onVariant }]}>+ New</Text>
+          </Pressable>
         </View>
-        <Pressable onPress={() => { setEditing(null); setShowForm(true); }} style={{ paddingHorizontal: 4, marginBottom: 2 }}>
-          <Text style={[{ fontSize: 12, fontWeight: '600', fontFamily: font.bold, color: DS.onVariant }]}>+ New envelope</Text>
-        </Pressable>
         {rows.length === 0 && (
           <Card style={{ padding: 12, borderRadius: DS.radius.sm }}>
-            <Empty msg="No envelopes yet. Cap a category to start allocating." />
+            <Empty msg="No envelopes yet. Cap a category to start." />
           </Card>
         )}
-        {rows.map(({ b, spent, pct }) => {
-          const over = pct > 100;
-          return (
-            <Pressable key={b.id} onPress={() => { setEditing(b); setShowForm(true) }}>
-              <Card style={{ padding: 12, borderRadius: DS.radius.sm, marginVertical: 3 }}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1, minWidth: 0 }}>
-                    <View style={{ width: 28, height: 28, borderRadius: 999, backgroundColor: over ? DS.primary : DS.low, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                      <I name={envIcon(b.category)} size={15} color={over ? '#fff' : DS.on} />
+        <Bento>
+          {[...rows].sort((a, b) => b.spent - a.spent).map(({ b, spent, pct }, idx, arr) => {
+            const over = pct > 100;
+            const featured = idx === 0 && arr.length > 2;
+            return (
+              <Pressable key={b.id} span={featured ? 2 : undefined} onPress={() => { setEditing(b); setShowForm(true); }}>
+                <Card style={{ padding: 12, borderRadius: DS.radius.sm, marginVertical: 0 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: over ? DS.primary : DS.low, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
+                      <I name={envIcon(b.category)} size={14} color={over ? '#fff' : DS.on} />
                     </View>
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Text style={[T.hSm, { color: DS.on, flexShrink: 1 }]} numberOfLines={1}>{b.category}</Text>
-                        {over && (
-                          <View style={{ backgroundColor: DS.primary, borderRadius: DS.radius.xs, paddingHorizontal: 6, paddingVertical: 2, marginLeft: 6 }}>
-                            <Text style={[T.labelSm, { color: '#fff' }]}>SURPLUS DEFICIT</Text>
-                          </View>
-                        )}
-                      </View>
-                      <Text style={[T.bodySm, { color: DS.onVariant }]}>{envSub(b)}</Text>
-                    </View>
+                    <Text style={[T.hSm, { color: DS.on, flex: 1 }]} numberOfLines={1}>{b.category}</Text>
                   </View>
-                  <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
-                    <Text style={[T.curMd, { color: DS.on }]}>{fmt(spent, base)}</Text>
-                    <Text style={[T.labelSm, { color: DS.onVariant }]}>of {fmt(b.cap, base)}</Text>
+                  <Text style={[T.curMd, { color: DS.on, marginTop: 8 }]} numberOfLines={1}>{fmt(spent, base)}</Text>
+                  <Text style={[T.labelSm, { color: DS.onVariant }]}>of {fmt(b.cap, base)}</Text>
+                  <View style={{ height: 6, borderRadius: 999, backgroundColor: DS.high, overflow: 'hidden', marginTop: 8 }}>
+                    <View style={{ height: '100%', width: `${Math.min(100, pct)}%`, backgroundColor: over ? DS.error : DS.primary, borderRadius: 999 }} />
                   </View>
-                </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-                  <View style={{ flex: 1, height: 6, borderRadius: 999, backgroundColor: DS.high, overflow: 'hidden', marginRight: 10 }}>
-                    <View style={{ height: '100%', width: `${Math.min(100, pct)}%`, backgroundColor: DS.primary, borderRadius: 999 }} />
-                  </View>
-                  {over ? (
-                    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.high, borderRadius: DS.radius.xs, paddingHorizontal: 6, paddingVertical: 2 }}>
-                      <I name="priority-high" size={13} color={DS.on} />
-                      <Text style={[{ fontSize: 11, lineHeight: 14, fontWeight: '700', fontFamily: font.bold, color: DS.on, marginLeft: 2 }]}>
-                        Over by {fmt(spent - b.cap, base)}
-                      </Text>
-                    </View>
-                  ) : (
-                    <Text style={[T.labelSm, { color: DS.onVariant }]}>
-                      {pct.toFixed(0)}% · {fmt(Math.max(0, b.cap - spent), base)} {pct >= 96 ? 'left' : 'remaining'}
-                    </Text>
-                  )}
-                </View>
-                <Pressable onPress={() => confirmAct('Delete?', `Remove the ${b.category} budget?`, 'Delete', () => onDeleteBudget(b.id))}>
-                  <Text style={[{ fontSize: 12, fontWeight: '600', fontFamily: font.bold, color: DS.error, marginTop: 8 }]}>Delete</Text>
-                </Pressable>
-              </Card>
-            </Pressable>
-          );
-        })}
+                  <Text style={[T.labelSm, { color: over ? DS.error : DS.onVariant, marginTop: 6 }]}>
+                    {over ? `Over by ${fmt(spent - b.cap, base)}` : `${pct.toFixed(0)}% used`}
+                  </Text>
+                </Card>
+              </Pressable>
+            );
+          })}
+        </Bento>
       </View>
 
-      {/* Rebalance */}
-      <Card>
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View style={{ flexDirection: 'row', flex: 1, minWidth: 0 }}>
-            <View style={{ width: 32, height: 32, borderRadius: DS.radius.sm, backgroundColor: DS.low, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-              <I name="account-balance-wallet" size={18} color={DS.on} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={[T.hSm, { color: DS.on }]}>Zero-Base Envelope Savings</Text>
-              <Text style={[T.bodySm, { color: DS.onVariant }]}>Unutilized allocation buffer</Text>
-            </View>
-          </View>
-          <Text style={[T.curMd, { color: DS.on, marginLeft: 8 }]}>{fmt(unspent, base)}</Text>
-        </View>
-        <Text style={[T.bodySm, { color: DS.onVariant, lineHeight: 17, marginTop: 8 }]}>
-          {overRows.length
-            ? `Cover the ${overRows[0].b.category} deficit from unspent envelopes without changing your baseline target.`
-            : 'You have headroom across categories. Rebalancing keeps every envelope at zero.'}
-        </Text>
-        <View style={{ flexDirection: 'row', marginTop: 10 }}>
-          <Pressable
-            onPress={() => notify(overRows.length ? 'Move unspent cover to the over-budget envelope in the plan below.' : 'Envelopes already balance to zero.')}
-            style={{ flex: 1, height: 40, borderRadius: DS.radius.sm, backgroundColor: DS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginRight: 8 }}
-          >
-            <I name="sync-alt" size={16} color="#fff" />
-            <Text style={[T.hSm, { color: '#fff', marginLeft: 6 }]}>Rebalance Envelopes</Text>
-          </Pressable>
-          <Pressable
-            onPress={() => notify('Tap an envelope to edit its cap, or set monthly targets below.')}
-            style={{ width: 46, height: 40, borderRadius: DS.radius.sm, backgroundColor: DS.low, alignItems: 'center', justifyContent: 'center' }}
-          >
-            <I name="settings" size={16} color={DS.on} />
-          </Pressable>
-        </View>
-      </Card>
-
-      {/* Zero-based plan editor */}
+      {/* Month plan */}
       <View style={{ marginTop: 16 }}>
         <View style={[U.hRow, { paddingHorizontal: 4, marginBottom: 4 }]}>
-          <Text style={[T.labelSm, { color: DS.onVariant }]}>ZERO-BASED PLAN · {monthLong(mk).toUpperCase()}</Text>
+          <Text style={[T.labelSm, { color: DS.onVariant }]}>PLAN · {monthLong(mk).toUpperCase()}</Text>
         </View>
         <Card style={{ padding: 12 }}>
           <View style={U.hRow}>
@@ -308,6 +244,17 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
           <Btn title="Save monthly plan" onPress={() => { onSavePlan(mk, draft); setDraft(null); }} />
         )}
       </View>
+
+      <Sheet visible={showMonths} onClose={() => setShowMonths(false)} title="Pick a month">
+        {monthOptions.map((m) => (
+          <Pressable key={m} onPress={() => { setMk(m); setDraft(null); setShowMonths(false); }} style={[U.hRow, { paddingVertical: 10, paddingHorizontal: 4 }]}>
+            <Text style={[{ fontSize: 14, fontWeight: m === mk ? '700' : '400', fontFamily: m === mk ? font.bold : font.regular, color: m === mk ? DS.primary : DS.on }]}>
+              {monthLong(m)}
+            </Text>
+            {m === mk && <I name="check" size={16} color={DS.primary} />}
+          </Pressable>
+        ))}
+      </Sheet>
 
       <Sheet visible={showForm} onClose={() => setShowForm(false)} title={editing ? 'Edit budget' : 'New budget'}>
         <BudgetForm initial={editing} taken={(budgets || []).map((b) => b.category)} onSave={onSaveBudget} onClose={() => setShowForm(false)} />

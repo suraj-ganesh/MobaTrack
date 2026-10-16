@@ -1,12 +1,12 @@
-// More: insights & summaries, recurring + forecast, bank sync, currencies, security.
+// More: insights, recurring bills, import/export, app lock, profile. NPR-only.
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
-import { C, CATS, CURRENCIES, fmt, font, monthKey, monthLabel, shiftMonth, todayISO, uid } from './theme';
+import { C, CATS, fmt, font, monthKey, monthLabel, shiftMonth, todayISO, uid } from './theme';
 import { balanceOf } from './money';
 import { forecast, freqLabel, FREQS, upcomingBills } from './recurring';
 import { compareMonths, monthSummary, prevMonthKey, topMerchants, yearSummary } from './summary';
 import { buildCSV, rowsToItems, parseCSV } from './csv';
-import { hashPin, newSalt, newSecret, otpauthURL, verifyTotp } from './crypto';
+import { hashPin, newSalt } from './crypto';
 import { Bars, Btn, Card, Chip, Empty, Field, MonthNav, Section, Sheet, U, confirmAct, notify } from './ui';
 
 /* ---------------- Insights ---------------- */
@@ -80,10 +80,9 @@ function Insights({ txs, settings }) {
 
 /* ---------------- Recurring ---------------- */
 
-function RecForm({ initial, base, onSave, onClose }) {
+function RecForm({ initial, onSave, onClose }) {
   const [label, setLabel] = useState(initial?.label || '');
   const [amount, setAmount] = useState(initial?.amount != null ? String(initial.amount) : '');
-  const [currency, setCurrency] = useState(initial?.currency || base);
   const [type, setType] = useState(initial?.type || 'expense');
   const [category, setCategory] = useState(initial?.category || 'Bills & Utilities');
   const [frequency, setFrequency] = useState(initial?.frequency || 'monthly');
@@ -99,7 +98,7 @@ function RecForm({ initial, base, onSave, onClose }) {
       id: initial?.id || uid(),
       label: label.trim().slice(0, 80),
       amount: n,
-      currency: CURRENCIES.includes(currency) ? currency : base,
+      currency: 'NPR',
       type,
       category: cats.includes(category) ? category : cats[0],
       frequency, nextDate, active,
@@ -109,16 +108,12 @@ function RecForm({ initial, base, onSave, onClose }) {
   return (
     <View>
       <Field label="Label" placeholder="e.g. Rent, Salary" value={label} onChangeText={setLabel} maxLength={80} />
-      <Field label="Amount" placeholder="0.00" keyboardType="numeric" value={amount}
+      <Field label="Amount (Rs.)" placeholder="0.00" keyboardType="numeric" value={amount}
         onChangeText={(v) => setAmount(v.replace(/[^0-9.]/g, ''))} />
       <View style={{ flexDirection: 'row' }}>
         {['expense', 'income'].map((t) => (
           <Chip key={t} label={t === 'expense' ? 'Bill (out)' : 'Income (in)'} active={type === t} onPress={() => setType(t)} />
         ))}
-      </View>
-      <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, fontFamily: font.medium }}>Currency</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-        {CURRENCIES.map((c) => <Chip key={c} label={c} active={currency === c} onPress={() => setCurrency(c)} />)}
       </View>
       <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, fontFamily: font.medium }}>Category</Text>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
@@ -199,7 +194,7 @@ function RecurringSection({ txs, recurrings, settings, onSave, onDelete, onPostD
       </View>
       <Btn title="+ New bill / recurring income" kind="ghost" onPress={() => { setEditing(null); setShowForm(true); }} />
       <Sheet visible={showForm} onClose={() => setShowForm(false)} title={editing ? 'Edit schedule' : 'New schedule'}>
-        <RecForm initial={editing} base={base} onSave={onSave} onClose={() => setShowForm(false)} />
+        <RecForm initial={editing} onSave={onSave} onClose={() => setShowForm(false)} />
       </Sheet>
     </View>
   );
@@ -207,13 +202,12 @@ function RecurringSection({ txs, recurrings, settings, onSave, onDelete, onPostD
 
 /* ---------------- Bank sync (CSV) ---------------- */
 
-function ImportSection({ txs, settings, learned, onImport }) {
+function ImportSection({ txs, learned, onImport }) {
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
-  const [currency, setCurrency] = useState(settings.baseCurrency);
   const [preview, setPreview] = useState(null);
   const parse = () => {
-    const items = rowsToItems(parseCSV(text), txs, currency, learned);
+    const items = rowsToItems(parseCSV(text), txs, 'NPR', learned);
     if (!items.length) return notify('No valid rows found. Need date, merchant, amount.');
     setPreview(items);
   };
@@ -229,20 +223,16 @@ function ImportSection({ txs, settings, learned, onImport }) {
       <Btn title="Import bank CSV" kind="ghost" onPress={() => setOpen(true)} />
       <Sheet visible={open} onClose={() => { setOpen(false); setPreview(null); }} title="Import bank CSV">
         <Text style={{ fontSize: 12, color: C.muted, fontFamily: font.regular }}>
-          Paste statement rows as: date, merchant, amount, currency, type, category, note. Negative amounts count as expenses. Categories auto-fill when missing.
+          Paste rows as: date, merchant, amount, type, category, note. Negative amounts count as expenses. Everything is in Rs.
         </Text>
         <TextInput
           style={{ borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 10, padding: 10, fontSize: 13, color: C.ink, minHeight: 120, marginTop: 8, textAlignVertical: 'top' }}
-          placeholder={'2026-09-01,Whole Foods,-84.20,USD\n2026-09-01,Employer,2500,USD,income,Salary'}
+          placeholder={'2026-09-01,Bhat Bhateni,-840\n2026-09-01,Employer,25000,income,Salary'}
           placeholderTextColor={C.faint}
           multiline
           value={text}
           onChangeText={setText}
         />
-        <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 8, fontFamily: font.medium }}>Default currency for rows without one</Text>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 2 }}>
-          {CURRENCIES.map((c) => <Chip key={c} label={c} active={currency === c} onPress={() => setCurrency(c)} />)}
-        </View>
         <Btn title="Preview" onPress={parse} />
         {preview && (
           <View style={{ marginTop: 4 }}>
@@ -292,49 +282,6 @@ function ExportSection({ txs }) {
           />
         )}
       </Card>
-    </View>
-  );
-}
-
-/* ---------------- Currencies ---------------- */
-
-function CurrencySection({ settings, onUpdate }) {
-  const base = settings.baseCurrency;
-  const rates = settings.rates;
-  const [draft, setDraft] = useState(null);
-  const working = draft || rates;
-  const dirty = !!draft;
-  return (
-    <View>
-      <Text style={[U.sub, { marginTop: 4 }]}>Base currency — all totals convert to this</Text>
-      <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginTop: 4 }}>
-        {CURRENCIES.map((c) => (
-          <Chip key={c} label={c} active={base === c} onPress={() => onUpdate({ baseCurrency: c })} />
-        ))}
-      </View>
-      <Text style={[U.sub, { marginTop: 8 }]}>Rates (units per 1 {base}) — edit to match current rates</Text>
-      {CURRENCIES.filter((c) => c !== base).map((c) => (
-        <View key={c} style={[U.hRow, { paddingVertical: 4 }]}>
-          <Text style={{ fontSize: 14, fontWeight: '700', color: C.ink, width: 52, fontFamily: font.medium }}>{c}</Text>
-          <TextInput
-            style={{ flex: 1, borderWidth: 1, borderColor: C.line, backgroundColor: C.card, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 8, fontSize: 14, color: C.ink, textAlign: 'right' }}
-            keyboardType="numeric"
-            value={String(working[c] ?? '')}
-            onChangeText={(v) => setDraft({ ...working, [c]: v.replace(/[^0-9.]/g, '') })}
-          />
-        </View>
-      ))}
-      {dirty && (
-        <Btn title="Save rates" onPress={() => {
-          const clean = { ...rates };
-          for (const c of CURRENCIES) {
-            const n = Number(working[c]);
-            if (c !== base && Number.isFinite(n) && n > 0) clean[c] = n;
-          }
-          onUpdate({ rates: clean });
-          setDraft(null);
-        }} />
-      )}
     </View>
   );
 }
@@ -400,56 +347,8 @@ function PinSheet({ mode, onClose, onSet, verify }) {
   );
 }
 
-function TotpSheet({ visible, settings, name, onClose, onUpdate }) {
-  const [secret, setSecret] = useState(settings.totpSecret || newSecret());
-  const [code, setCode] = useState('');
-  const enabled = settings.totpEnabled;
-  const enable = () => {
-    if (!verifyTotp(secret, code)) return notify('Code does not match. Check the secret and try again.');
-    onUpdate({ totpSecret: secret, totpEnabled: true });
-    setCode('');
-    onClose();
-    notify('Two-factor authentication enabled.');
-  };
-  const disable = () => {
-    if (!verifyTotp(settings.totpSecret, code)) return notify('Wrong code.');
-    onUpdate({ totpEnabled: false });
-    setCode('');
-    onClose();
-  };
-  return (
-    <Sheet visible={visible} onClose={onClose} title="Two-factor authentication">
-      {enabled ? (
-        <View>
-          <Text style={{ fontSize: 13, color: C.muted, fontFamily: font.regular }}>
-            2FA is on. Enter a code from your authenticator app to turn it off.
-          </Text>
-          <Field label="6-digit code" keyboardType="numeric" value={code} maxLength={8}
-            onChangeText={(v) => setCode(v.replace(/[^0-9]/g, ''))} />
-          <Btn title="Disable 2FA" kind="danger" onPress={disable} />
-        </View>
-      ) : (
-        <View>
-          <Text style={{ fontSize: 13, color: C.muted, fontFamily: font.regular }}>
-            1. Open Google Authenticator / Authy / 1Password.{'\n'}
-            2. Add an account and type this secret:{'\n'}
-          </Text>
-          <Text selectable style={{ fontSize: 18, fontWeight: '800', letterSpacing: 2, color: C.ink, textAlign: 'center', marginVertical: 6, fontFamily: font.bold }}>{secret}</Text>
-          <Text selectable style={{ fontSize: 11, color: C.muted, textAlign: 'center', fontFamily: font.regular }}>
-            {otpauthURL(secret, name || 'user')}
-          </Text>
-          <Field label="6-digit code to confirm" keyboardType="numeric" value={code} maxLength={8}
-            onChangeText={(v) => setCode(v.replace(/[^0-9]/g, ''))} />
-          <Btn title="Enable 2FA" onPress={enable} />
-        </View>
-      )}
-    </Sheet>
-  );
-}
-
 function SecuritySection({ settings, onUpdate, onLockNow, verify }) {
   const [pinMode, setPinMode] = useState(null);
-  const [totpOpen, setTotpOpen] = useState(false);
   const hasPin = !!settings.pinHash;
   return (
     <View>
@@ -457,7 +356,7 @@ function SecuritySection({ settings, onUpdate, onLockNow, verify }) {
         <View style={U.hRow}>
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 14, fontWeight: '700', color: C.ink, fontFamily: font.bold }}>App lock (PIN)</Text>
-            <Text style={{ fontSize: 12, color: C.muted, fontFamily: font.regular }}>{hasPin ? 'Enabled — required on launch' : 'Off'}</Text>
+            <Text style={{ fontSize: 12, color: C.muted, fontFamily: font.regular }}>{hasPin ? 'On' : 'Off'}</Text>
           </View>
           {!hasPin && <Pressable onPress={() => setPinMode('setup')}><Text style={{ color: C.accent, fontWeight: '800', fontFamily: font.bold }}>Set up</Text></Pressable>}
           {hasPin && (
@@ -470,15 +369,6 @@ function SecuritySection({ settings, onUpdate, onLockNow, verify }) {
               </Pressable>
             </View>
           )}
-        </View>
-        <View style={[U.hRow, { marginTop: 10 }]}>
-          <View style={{ flex: 1 }}>
-            <Text style={{ fontSize: 14, fontWeight: '700', color: C.ink, fontFamily: font.bold }}>Two-factor (TOTP)</Text>
-            <Text style={{ fontSize: 12, color: C.muted, fontFamily: font.regular }}>{settings.totpEnabled ? 'Enabled' : 'Off'}</Text>
-          </View>
-          <Pressable onPress={() => setTotpOpen(true)}>
-            <Text style={{ color: C.accent, fontWeight: '800', fontFamily: font.bold }}>{settings.totpEnabled ? 'Manage' : 'Set up'}</Text>
-          </Pressable>
         </View>
         {hasPin && (
           <View style={{ marginTop: 8 }}>
@@ -499,7 +389,6 @@ function SecuritySection({ settings, onUpdate, onLockNow, verify }) {
           }
         }}
       />
-      <TotpSheet visible={totpOpen} settings={settings} name={settings.name} onClose={() => setTotpOpen(false)} onUpdate={onUpdate} />
     </View>
   );
 }
@@ -526,14 +415,10 @@ export function MoreScreen(props) {
         />
       </Section>
 
-      <Section title="Bank sync & data">
-        <ImportSection txs={props.txs} settings={settings} learned={props.learned} onImport={props.onImport} />
+      <Section title="Import & data">
+        <ImportSection txs={props.txs} learned={props.learned} onImport={props.onImport} />
         <ExportSection txs={props.txs} />
         <Btn title="Delete all data" kind="danger" onPress={() => confirmAct('Delete everything?', 'Transactions, budgets, goals and schedules will be removed.', 'Delete all', onReset)} />
-      </Section>
-
-      <Section title="Currencies">
-        <CurrencySection settings={settings} onUpdate={onUpdateSettings} />
       </Section>
 
       <Section title="Security">

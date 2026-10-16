@@ -60,25 +60,18 @@ export const CATS = {
   income: ['Salary', 'Freelance', 'Business', 'Interest', 'Gift', 'Other'],
 };
 
-export const CURRENCIES = [
-  'USD', 'EUR', 'GBP', 'NPR', 'INR', 'JPY', 'CNY', 'AUD', 'CAD', 'CHF', 'AED', 'SGD',
-];
+// NPR-only app: a single currency, no exchange rates, no conversion.
+export const CURRENCIES = ['NPR'];
 
-// Units of each currency per 1 USD. Manual estimates — user-editable in Settings.
-export const DEFAULT_RATES = {
-  USD: 1, EUR: 0.92, GBP: 0.79, NPR: 141, INR: 88, JPY: 155,
-  CNY: 7.2, AUD: 1.52, CAD: 1.4, CHF: 0.89, AED: 3.67, SGD: 1.34,
-};
+export const DEFAULT_RATES = { NPR: 1 };
 
 const MN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const MNL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 
-// Display currency. Stitch shows "Rs." everywhere, so all amounts render
-// with the Rs. prefix (conversion math still runs in the base currency).
+// All amounts are in Nepali rupees.
 export const RS = 'Rs.';
 
-export function fmt(amount, code) {
-  void code;
+export function fmt(amount) {
   const n = Number(amount) || 0;
   const s = n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   return `${RS} ${s}`;

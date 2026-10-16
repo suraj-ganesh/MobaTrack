@@ -15,16 +15,16 @@ import {
   JetBrainsMono_400Regular,
   JetBrainsMono_500Medium,
 } from '@expo-google-fonts/jetbrains-mono';
-import { DS, C, CURRENCIES, font, todayISO } from './src/theme';
+import { DS, C, fmt, font, todayISO } from './src/theme';
 import {
   clearAll, loadAll, saveBudgets, saveGoals, saveLearned, savePlans,
-  saveRecurring, saveSettings, saveTransactions, DEFAULT_SETTINGS,
+  saveRecurring, saveSettings, saveTransactions, DEFAULT_SETTINGS, BASE_CURRENCY,
 } from './src/storage';
 import { findAnomalies } from './src/anomalies';
 import { postDue } from './src/recurring';
 import { learnMapping } from './src/categorize';
 import { hashPin, verifyTotp } from './src/crypto';
-import { AppHeader, Btn, Card, FloatingDock, Label, notify } from './src/ui';
+import { SlimHeader, Btn, Card, FadeSlide, FloatingDock, Label, notify } from './src/ui';
 import { TxEditor } from './src/tx_editor';
 import { DashScreen } from './src/screen_dash';
 import { TxScreen } from './src/screen_tx';
@@ -177,19 +177,25 @@ export default function App() {
     saveSettings(settings);
   }, [ready, txs, goals, budgets, plans, recurrings, learned, settings]);
 
-  const base = settings.baseCurrency;
+  const base = BASE_CURRENCY;
   const flags = useMemo(
     () => findAnomalies(txs, base, settings.rates),
     [txs, base, settings.rates]
   );
 
-  const saveTx = (tx) =>
+  const saveTx = (tx) => {
+    const isNew = !txs.some((t) => t.id === tx.id);
     setTxs((prev) => (prev.some((t) => t.id === tx.id) ? prev.map((t) => (t.id === tx.id ? tx : t)) : [tx, ...prev]));
-  const deleteTx = (id) => setTxs((prev) => prev.filter((t) => t.id !== id));
+    notify(isNew ? `Added ${fmt(tx.amount)} ${tx.type}.` : 'Transaction updated.');
+  };
+  const deleteTx = (id) => {
+    setTxs((prev) => prev.filter((t) => t.id !== id));
+    notify('Transaction deleted.');
+  };
   const importTxs = (items) => {
     const full = items.map((i) => ({
       id: `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}${i.date}${i.amount}`.slice(0, 24),
-      amount: i.amount, currency: i.currency, type: i.type, category: i.category,
+      amount: i.amount, currency: BASE_CURRENCY, type: i.type, category: i.category,
       merchant: i.merchant, note: i.note, date: i.date, items: [],
     }));
     setTxs((prev) => [...full, ...prev]);
@@ -240,22 +246,17 @@ export default function App() {
     notify(`Recorded ${created.length} transaction${created.length === 1 ? '' : 's'}.`);
   };
 
+  // NPR-only: currency and rates are locked. Only name / lock settings change.
   const updateSettings = (patch) => setSettings((prev) => {
-    const next = { ...prev, ...patch };
-    if (patch.baseCurrency && patch.baseCurrency !== prev.baseCurrency) {
-      const factor = Number(prev.rates[patch.baseCurrency]);
-      if (Number.isFinite(factor) && factor > 0) {
-        const r = {};
-        for (const c of CURRENCIES) {
-          const v = Number(prev.rates[c]);
-          r[c] = c === patch.baseCurrency ? 1 : Math.round((v / factor) * 10000) / 10000;
-        }
-        next.rates = r;
-      } else {
-        next.rates = { ...prev.rates, [patch.baseCurrency]: 1 };
-      }
-    }
-    return next;
+    const { baseCurrency, rates, ...rest } = patch || {};
+    void baseCurrency;
+    void rates;
+    return {
+      ...prev,
+      ...rest,
+      baseCurrency: BASE_CURRENCY,
+      rates: { [BASE_CURRENCY]: 1 },
+    };
   });
   const verifyPin = (pin) => !!settings.pinHash && hashPin(pin, settings.pinSalt) === settings.pinHash;
   const resetAll = () => {
@@ -292,56 +293,58 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={S.root} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar style="dark" />
-        <AppHeader
-          title={tab}
+        <SlimHeader
+          name={settings.name}
           onBell={() => (Object.keys(flags || {}).length ? setTab('Activity') : notify('You are all caught up. No new alerts.'))}
           onSettings={() => setTab('More')}
         />
         <View style={S.body}>
           <ScrollView contentContainerStyle={S.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-            {tab === 'Home' && (
-              <DashScreen
-                txs={txs} goals={goals} budgets={budgets} recurrings={recurrings}
-                settings={settings} flags={flags}
-                onQuickAdd={() => setEditor({ open: true, initial: null })}
-                onGo={setTab}
-                onPostDue={() => doPostDue(null)}
-              />
-            )}
-            {tab === 'Activity' && (
-              <TxScreen
-                txs={txs} flags={flags} base={base} settings={settings}
-                onAdd={() => setEditor({ open: true, initial: null })}
-                onEdit={(t) => setEditor({ open: true, initial: t })}
-              />
-            )}
-            {tab === 'Budgets' && (
-              <BudgetScreen
-                txs={txs} budgets={budgets} plans={plans} settings={settings}
-                onSaveBudget={saveBudget} onDeleteBudget={deleteBudget} onSavePlan={savePlan}
-              />
-            )}
-            {tab === 'Goals' && (
-              <GoalScreen
-                goals={goals} settings={settings}
-                onSaveGoal={saveGoal} onDeleteGoal={deleteGoal} onMoveFunds={moveFunds}
-              />
-            )}
-            {tab === 'More' && (
-              <MoreScreen
-                txs={txs} goals={goals} budgets={budgets} recurrings={recurrings}
-                learned={learned} settings={settings}
-                onImport={importTxs}
-                onSaveRecurring={upsertRecurring}
-                onDeleteRecurring={deleteRecurring}
-                onPostDue={doPostDue}
-                onUpdateSettings={updateSettings}
-                onReset={resetAll}
-                onLockNow={() => (settings.pinHash ? setLocked(true) : notify('Set an app PIN first (Security section).'))}
-                verifyPin={verifyPin}
-              />
-            )}
-            <View style={{ height: 110 }} />
+            <FadeSlide id={tab}>
+              {tab === 'Home' && (
+                <DashScreen
+                  txs={txs} goals={goals} budgets={budgets} recurrings={recurrings}
+                  settings={settings} flags={flags}
+                  onQuickAdd={() => setEditor({ open: true, initial: null })}
+                  onGo={setTab}
+                  onPostDue={() => doPostDue(null)}
+                />
+              )}
+              {tab === 'Activity' && (
+                <TxScreen
+                  txs={txs} flags={flags} base={base} settings={settings}
+                  onAdd={() => setEditor({ open: true, initial: null })}
+                  onEdit={(t) => setEditor({ open: true, initial: t })}
+                />
+              )}
+              {tab === 'Budgets' && (
+                <BudgetScreen
+                  txs={txs} budgets={budgets} plans={plans} settings={settings}
+                  onSaveBudget={saveBudget} onDeleteBudget={deleteBudget} onSavePlan={savePlan}
+                />
+              )}
+              {tab === 'Goals' && (
+                <GoalScreen
+                  goals={goals} settings={settings}
+                  onSaveGoal={saveGoal} onDeleteGoal={deleteGoal} onMoveFunds={moveFunds}
+                />
+              )}
+              {tab === 'More' && (
+                <MoreScreen
+                  txs={txs} goals={goals} budgets={budgets} recurrings={recurrings}
+                  learned={learned} settings={settings}
+                  onImport={importTxs}
+                  onSaveRecurring={upsertRecurring}
+                  onDeleteRecurring={deleteRecurring}
+                  onPostDue={doPostDue}
+                  onUpdateSettings={updateSettings}
+                  onReset={resetAll}
+                  onLockNow={() => (settings.pinHash ? setLocked(true) : notify('Set an app PIN first (Security section).'))}
+                  verifyPin={verifyPin}
+                />
+              )}
+            </FadeSlide>
+            <View style={{ height: 140 }} />
           </ScrollView>
         </View>
         <FloatingDock
@@ -352,8 +355,6 @@ export default function App() {
         <TxEditor
           visible={editor.open}
           initial={editor.initial}
-          base={base}
-          defaultCurrency={base}
           learned={learned}
           onClose={() => setEditor({ open: false, initial: null })}
           onSave={saveTx}

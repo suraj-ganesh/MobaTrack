@@ -6,7 +6,7 @@ import { Share } from 'react-native';
 import { DS, fmt, font, T, monthKey, monthName, todayISO, addDaysISO } from './theme';
 import { sumAlloc, toBase } from './money';
 import { buildCSV } from './csv';
-import { Card, Chip, I, Label, SearchBar, U, notify } from './ui';
+import { Bento, Card, Chip, I, Label, SearchBar, U, notify } from './ui';
 
 function glyphFor(t) {
   const s = `${t.merchant || ''} ${t.note || ''} ${t.category || ''}`.toLowerCase();
@@ -98,17 +98,28 @@ export function TxScreen({ txs, flags, base, settings, onAdd, onEdit }) {
             <Circle cx={78} cy={3} r={2} fill={DS.primary} />
           </Svg>
         </View>
-        <View style={{ flexDirection: 'row', marginTop: 8 }}>
-          <View style={{ flex: 1, backgroundColor: DS.inset, borderRadius: DS.radius.sm, padding: 6, marginRight: 4 }}>
-            <Text style={[T.labelSm, { color: DS.onVariant }]}>Inflow</Text>
-            <Text style={[T.curSm, { color: DS.primary, marginTop: 2 }]}>{fmt(inflow, base)}</Text>
-          </View>
-          <View style={{ flex: 1, backgroundColor: DS.inset, borderRadius: DS.radius.sm, padding: 6, marginLeft: 4 }}>
-            <Text style={[T.labelSm, { color: DS.onVariant }]}>Outflow</Text>
-            <Text style={[T.curSm, { color: DS.primary, marginTop: 2 }]}>{fmt(outflow, base)}</Text>
-          </View>
-        </View>
       </Card>
+
+      {/* Bento: halves -> wide feature */}
+      <Bento>
+        <Card style={{ padding: 14, marginVertical: 0 }}>
+          <Label>In</Label>
+          <Text style={[T.curMd, { color: DS.primary, marginTop: 6 }]} numberOfLines={1}>{fmt(inflow, base)}</Text>
+        </Card>
+        <Card style={{ padding: 14, marginVertical: 0 }}>
+          <Label>Out</Label>
+          <Text style={[T.curMd, { color: DS.primary, marginTop: 6 }]} numberOfLines={1}>{fmt(outflow, base)}</Text>
+        </Card>
+        <Card span={2} style={{ padding: 14, marginVertical: 0 }}>
+          <View style={[U.hRow]}>
+            <Label>Entries this month</Label>
+            <Text style={[T.curSm, { color: DS.primary }]}>{(txs || []).filter((t) => monthKey(t.date) === mk).length}</Text>
+          </View>
+          <Text style={[T.bodySm, { color: DS.onVariant, marginTop: 6 }]}>
+            {net >= 0 ? `Keeping ${fmt(net, base)} this month` : `Over by ${fmt(Math.abs(net), base)} this month`}
+          </Text>
+        </Card>
+      </Bento>
 
       {/* Search + filters */}
       <SearchBar value={q} onChange={setQ} />
@@ -166,7 +177,7 @@ export function TxScreen({ txs, flags, base, settings, onAdd, onEdit }) {
                       </View>
                       <View style={{ alignItems: 'flex-end', marginLeft: 8 }}>
                         <Text style={[T.curMd, { color: DS.primary }]} numberOfLines={1}>
-                          {t.type === 'income' ? '+' : '-'}{fmt(toBase(t.amount, t.currency, base, rates))}
+                          {t.type === 'income' ? '+' : '-'}{fmt(toBase(t.amount, t.currency, base, rates), base)}
                         </Text>
                         <Text style={[T.labelMd, { color: DS.onVariant, marginTop: 2 }]}>
                           {t.type === 'income' ? 'Cleared' : t.date === today ? 'Today' : t.date === yesterday ? 'Yesterday' : t.date}
