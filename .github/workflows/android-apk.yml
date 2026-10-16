@@ -46,7 +46,8 @@ jobs:
 
       - name: Download APK
         run: |
-          URL=$(jq -r '.artifacts.buildUrl' build.json)
+          URL=$(jq -r '.[0].artifacts.buildUrl // empty' build.json)
+          if [ -z "$URL" ]; then echo "No artifact URL found:"; cat build.json; exit 1; fi
           curl -L --fail -o MobaTrack.apk "$URL"
           ls -la MobaTrack.apk
 
