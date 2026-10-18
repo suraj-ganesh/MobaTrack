@@ -178,7 +178,7 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
                 <Card style={{ padding: 12, borderRadius: DS.radius.sm, marginVertical: 0 }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View style={{ width: 26, height: 26, borderRadius: 999, backgroundColor: over ? DS.primary : DS.low, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-                      <I name={envIcon(b.category)} size={14} color={over ? '#fff' : DS.on} />
+                      <I name={envIcon(b.category)} size={14} color={over ? DS.onPrimary : DS.on} />
                     </View>
                     <Text style={[T.hSm, { color: DS.on, flex: 1 }]} numberOfLines={1}>{b.category}</Text>
                   </View>
@@ -232,7 +232,7 @@ export function BudgetScreen({ txs, budgets, plans, settings, onSaveBudget, onDe
                 </Text>
               </View>
               <TextInput
-                style={{ width: 96, borderWidth: 1, borderColor: DS.hairline, backgroundColor: '#fff', borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: DS.on, textAlign: 'right', fontFamily: font.mono }}
+                style={{ width: 96, borderWidth: 1, borderColor: DS.hairline, backgroundColor: DS.inputBase, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 8, fontSize: 13, color: DS.on, textAlign: 'right', fontFamily: font.mono }}
                 placeholder="0" placeholderTextColor={DS.outline} keyboardType="numeric"
                 value={working[c] ? String(working[c]) : ''}
                 onChangeText={(v) => setCell(c, v)}

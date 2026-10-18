@@ -52,7 +52,7 @@ function MonthCalendar({ value, onPick }) {
   const today = todayISO();
   const isoOf = (d) => `${view}-${String(d).padStart(2, '0')}`;
   return (
-    <View style={{ backgroundColor: '#fff', borderWidth: 1, borderColor: DS.hairline, borderRadius: DS.radius.sm, padding: 10, marginTop: 6 }}>
+    <View style={{ backgroundColor: DS.lowest, borderWidth: 1, borderColor: DS.hairline, borderRadius: DS.radius.sm, padding: 10, marginTop: 6 }}>
       <View style={[U.hRow, { marginBottom: 8 }]}>
         <Pressable onPress={() => setView(shiftMonth(view, -1))} hitSlop={12} style={{ padding: 6 }}>
           <I name="chevron-left" size={18} color={DS.on} />
@@ -80,7 +80,7 @@ function MonthCalendar({ value, onPick }) {
                 backgroundColor: selected ? DS.primary : 'transparent',
                 borderWidth: !selected && isToday ? 1 : 0, borderColor: DS.primary,
               }}>
-                <Text style={{ fontSize: 13, fontWeight: selected ? '700' : '400', color: selected ? '#fff' : DS.on, fontFamily: selected ? font.bold : font.regular }}>
+                <Text style={{ fontSize: 13, fontWeight: selected ? '700' : '400', color: selected ? DS.onPrimary : DS.on, fontFamily: selected ? font.bold : font.regular }}>
                   {d}
                 </Text>
               </View>
@@ -170,8 +170,8 @@ export function GoalScreen({ goals, settings, onSaveGoal, onDeleteGoal, onMoveFu
           onPress={() => { setEditing(null); setShowForm(true); }}
           style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.primary, borderRadius: 999, height: 28, paddingHorizontal: 12, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3, elevation: 2 }}
         >
-          <I name="add" size={14} color="#fff" />
-          <Text style={[{ fontSize: 11, lineHeight: 14, fontWeight: '600', fontFamily: font.bold, color: '#fff', marginLeft: 4 }]}>New Goal</Text>
+          <I name="add" size={14} color={DS.onPrimary} />
+          <Text style={[{ fontSize: 11, lineHeight: 14, fontWeight: '600', fontFamily: font.bold, color: DS.onPrimary, marginLeft: 4 }]}>New Goal</Text>
         </Pressable>
       </View>
 
@@ -225,7 +225,7 @@ export function GoalScreen({ goals, settings, onSaveGoal, onDeleteGoal, onMoveFu
               backgroundColor: filter === f.id ? DS.primary : DS.container,
             }}
           >
-            <Text style={[{ fontSize: 11, lineHeight: 14, fontWeight: filter === f.id ? '600' : '500', fontFamily: filter === f.id ? font.bold : font.medium, color: filter === f.id ? '#fff' : DS.onVariant }]}>
+            <Text style={[{ fontSize: 11, lineHeight: 14, fontWeight: filter === f.id ? '600' : '500', fontFamily: filter === f.id ? font.bold : font.medium, color: filter === f.id ? DS.onPrimary : DS.onVariant }]}>
               {f.label}
             </Text>
           </Pressable>
@@ -259,7 +259,7 @@ export function GoalScreen({ goals, settings, onSaveGoal, onDeleteGoal, onMoveFu
                   <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                     <View style={{ flexDirection: 'row', flex: 1, minWidth: 0 }}>
                       <View style={{ width: 32, height: 32, borderRadius: DS.radius.sm, backgroundColor: isDone ? DS.primary : DS.container, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                        <I name={goalIcon(g.name)} size={16} color={isDone ? '#fff' : DS.primary} />
+                        <I name={goalIcon(g.name)} size={16} color={isDone ? DS.onPrimary : DS.primary} />
                       </View>
                       <View style={{ flex: 1, minWidth: 0 }}>
                         <Text style={[T.hSm, { color: DS.on }]} numberOfLines={1}>{g.name}</Text>
@@ -271,8 +271,8 @@ export function GoalScreen({ goals, settings, onSaveGoal, onDeleteGoal, onMoveFu
                     </View>
                     {isDone ? (
                       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.primary, borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2, marginLeft: 8 }}>
-                        <I name="done-all" size={11} color="#fff" />
-                        <Text style={[T.labelSm, { color: '#fff', marginLeft: 3 }]}>100%</Text>
+                        <I name="done-all" size={11} color={DS.onPrimary} />
+                        <Text style={[T.labelSm, { color: DS.onPrimary, marginLeft: 3 }]}>100%</Text>
                       </View>
                     ) : (
                       <Text style={[T.curSm, { color: DS.primary, marginLeft: 8 }]}>{pct.toFixed(0)}%</Text>
@@ -333,9 +333,9 @@ export function GoalScreen({ goals, settings, onSaveGoal, onDeleteGoal, onMoveFu
               onChangeText={(v) => setManageAmt(v.replace(/[^0-9.]/g, ''))} />
             <View style={{ flexDirection: 'row', marginTop: 2 }}>
               <Pressable onPress={() => doMove(1)} style={{ flex: 1, backgroundColor: DS.primary, borderRadius: DS.radius.sm, paddingVertical: 12, alignItems: 'center', marginRight: 6 }}>
-                <Text style={{ color: '#fff', fontWeight: '600', fontSize: 13, fontFamily: font.bold }}>+ Add</Text>
+                <Text style={{ color: DS.onPrimary, fontWeight: '600', fontSize: 13, fontFamily: font.bold }}>+ Add</Text>
               </Pressable>
-              <Pressable onPress={() => doMove(-1)} style={{ flex: 1, borderWidth: 1, borderColor: DS.hairline, borderRadius: DS.radius.sm, paddingVertical: 12, alignItems: 'center', backgroundColor: '#fff' }}>
+              <Pressable onPress={() => doMove(-1)} style={{ flex: 1, borderWidth: 1, borderColor: DS.hairline, borderRadius: DS.radius.sm, paddingVertical: 12, alignItems: 'center', backgroundColor: DS.lowest }}>
                 <Text style={{ color: DS.on, fontWeight: '600', fontSize: 13, fontFamily: font.bold }}>− Out</Text>
               </Pressable>
             </View>

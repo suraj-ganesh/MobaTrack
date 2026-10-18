@@ -17,6 +17,7 @@ const K = {
 
 export const DEFAULT_SETTINGS = {
   name: 'Suraj',
+  theme: 'system',
   baseCurrency: BASE_CURRENCY,
   rates: { [BASE_CURRENCY]: 1 },
   pinHash: null,
@@ -171,6 +172,7 @@ export function cleanSettings(v) {
   if (!v || typeof v !== 'object') return { ...d, rates: { [BASE_CURRENCY]: 1 } };
   return {
     name: String(v.name ?? '').slice(0, 60),
+    theme: ['light', 'dark', 'system'].includes(v.theme) ? v.theme : 'system',
     baseCurrency: BASE_CURRENCY,
     rates: { [BASE_CURRENCY]: 1 },
     pinHash: typeof v.pinHash === 'string' ? v.pinHash : null,

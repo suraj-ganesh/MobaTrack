@@ -2,7 +2,7 @@
 // Floating glass dock, Hanken Grotesk, offline-first. Logic unchanged.
 import { useEffect, useMemo, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Appearance, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useColorScheme } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import {
   useFonts,
@@ -15,7 +15,7 @@ import {
   JetBrainsMono_400Regular,
   JetBrainsMono_500Medium,
 } from '@expo-google-fonts/jetbrains-mono';
-import { DS, C, fmt, font, todayISO } from './src/theme';
+import { DS, C, fmt, font, todayISO, applyTheme, themeResolved } from './src/theme';
 import {
   clearAll, loadAll, saveBudgets, saveGoals, saveLearned, savePlans,
   saveRecurring, saveSettings, saveTransactions, DEFAULT_SETTINGS, BASE_CURRENCY,
@@ -38,6 +38,7 @@ function LockScreen({ settings, onUnlock }) {
   const [pin, setPin] = useState('');
   const [pinOk, setPinOk] = useState(!settings.pinHash);
   const [code, setCode] = useState('');
+  const L = useMemo(makeLockStyles, [themeResolved]);
 
   const press = (d) => setPin((p) => (p.length < 8 ? p + d : p));
   const back = () => setPin((p) => p.slice(0, -1));
@@ -104,7 +105,7 @@ function LockScreen({ settings, onUnlock }) {
             onChangeText={(v) => setCode(v.replace(/[^0-9]/g, ''))}
             onSubmitEditing={submitCode}
             placeholder="6-digit code"
-            placeholderTextColor={DS.muted}
+            placeholderTextColor={C.faint}
           />
           <Btn title="Verify & unlock" onPress={submitCode} />
         </Card>
@@ -113,19 +114,35 @@ function LockScreen({ settings, onUnlock }) {
   );
 }
 
-const L = StyleSheet.create({
-  wrap: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: DS.bg, alignItems: 'center' },
-  logo: { width: 44, height: 44, borderRadius: 14, backgroundColor: DS.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
-  logoText: { color: '#fff', fontSize: 20, fontWeight: '700' },
-  title: { fontSize: 22, fontWeight: '600', color: DS.ink, letterSpacing: -0.4, fontFamily: font.bold },
-  sub: { fontSize: 13, color: DS.muted, marginTop: 2, fontFamily: font.regular },
-  dots: { fontSize: 20, color: DS.ink, textAlign: 'center', marginVertical: 12, letterSpacing: 4 },
-  pad: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
-  key: { width: '30%', aspectRatio: 1.6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: DS.line, borderRadius: 999, margin: 3, backgroundColor: 'rgba(255,255,255,0.85)' },
-  keyText: { fontSize: 22, fontWeight: '600', color: DS.ink, fontFamily: font.bold },
-  keyFn: { fontSize: 13, fontWeight: '600', color: DS.muted, fontFamily: font.bold },
-  code: { borderWidth: 1, borderColor: DS.line, backgroundColor: '#fff', borderRadius: 999, padding: 13, fontSize: 20, color: DS.ink, textAlign: 'center', letterSpacing: 4, marginVertical: 10 },
-});
+function makeLockStyles() {
+  return StyleSheet.create({
+    wrap: { flex: 1, justifyContent: 'center', padding: 20, backgroundColor: C.bg, alignItems: 'center' },
+    logo: { width: 44, height: 44, borderRadius: 14, backgroundColor: DS.on, alignItems: 'center', justifyContent: 'center', marginBottom: 10 },
+    logoText: { color: DS.background, fontSize: 20, fontWeight: '700' },
+    title: { fontSize: 22, fontWeight: '600', color: C.ink, letterSpacing: -0.4, fontFamily: font.bold },
+    sub: { fontSize: 13, color: C.muted, marginTop: 2, fontFamily: font.regular },
+    dots: { fontSize: 20, color: C.ink, textAlign: 'center', marginVertical: 12, letterSpacing: 4 },
+    pad: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center' },
+    key: { width: '30%', aspectRatio: 1.6, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: C.line, borderRadius: 999, margin: 3, backgroundColor: DS.chipBase },
+    keyText: { fontSize: 22, fontWeight: '600', color: C.ink, fontFamily: font.bold },
+    keyFn: { fontSize: 13, fontWeight: '600', color: C.muted, fontFamily: font.bold },
+    code: { borderWidth: 1, borderColor: C.line, backgroundColor: DS.inputBase, borderRadius: 999, padding: 13, fontSize: 20, color: C.ink, textAlign: 'center', letterSpacing: 4, marginVertical: 10 },
+  });
+}
+
+// Rebuilt with the logo, lock sheet, and body so static StyleSheet entries
+// never go stale on a theme flip.
+function makeRootStyles() {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: C.bg },
+    loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: C.bg },
+    loadLogo: { width: 48, height: 48, borderRadius: 16, backgroundColor: DS.on, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+    loadLogoText: { color: DS.background, fontSize: 22, fontWeight: '700' },
+    loadText: { fontSize: 20, fontWeight: '600', color: C.ink, letterSpacing: -0.4, fontFamily: font.bold },
+    body: { flex: 1 },
+    scroll: { padding: 16, paddingBottom: 8, paddingTop: 4 },
+  });
+}
 
 export default function App() {
   const [fontsLoaded] = useFonts({
@@ -147,6 +164,24 @@ export default function App() {
   const [ready, setReady] = useState(false);
   const [locked, setLocked] = useState(false);
   const [editor, setEditor] = useState({ open: false, initial: null });
+
+  // Theme: applied before the first paint (useState initializer), then re-applied
+  // whenever the stored preference or the OS scheme changes. `tick` forces
+  // one full re-render so every inline DS read picks up the new palette.
+  const systemScheme = useColorScheme();
+  const [tick, setTick] = useState(() => {
+    applyTheme('system', Appearance.getColorScheme() || 'light');
+    return 0;
+  });
+  const S = useMemo(makeRootStyles, [tick]);
+
+  useEffect(() => {
+    const changed = applyTheme(
+      settings.theme || 'system',
+      systemScheme || Appearance.getColorScheme() || 'light'
+    );
+    if (changed) setTick((t) => t + 1);
+  }, [settings.theme, systemScheme]);
 
   useEffect(() => {
     let on = true;
@@ -246,7 +281,7 @@ export default function App() {
     notify(`Recorded ${created.length} transaction${created.length === 1 ? '' : 's'}.`);
   };
 
-  // NPR-only: currency and rates are locked. Only name / lock settings change.
+  // NPR-only: currency and rates are locked. Theme / name / lock settings change.
   const updateSettings = (patch) => setSettings((prev) => {
     const { baseCurrency, rates, ...rest } = patch || {};
     void baseCurrency;
@@ -266,13 +301,15 @@ export default function App() {
     setLocked(false); setTab('Home');
   };
 
+  const statusBar = themeResolved === 'dark' ? 'light' : 'dark';
+
   if (!ready || !fontsLoaded) {
     return (
       <SafeAreaProvider>
         <SafeAreaView style={S.loading}>
           <View style={S.loadLogo}><Text style={S.loadLogoText}>M</Text></View>
           <Text style={S.loadText}>MobaTrack</Text>
-          <StatusBar style="dark" />
+          <StatusBar style={statusBar} />
         </SafeAreaView>
       </SafeAreaProvider>
     );
@@ -281,8 +318,8 @@ export default function App() {
   if (locked) {
     return (
       <SafeAreaProvider>
-        <SafeAreaView style={{ flex: 1, backgroundColor: DS.bg }}>
-          <StatusBar style="dark" />
+        <SafeAreaView style={{ flex: 1, backgroundColor: C.bg }}>
+          <StatusBar style={statusBar} />
           <ToastHost top={24} />
           <LockScreen settings={settings} onUnlock={() => setLocked(false)} />
         </SafeAreaView>
@@ -293,7 +330,7 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <SafeAreaView style={S.root} edges={['top', 'bottom', 'left', 'right']}>
-        <StatusBar style="dark" />
+        <StatusBar style={statusBar} />
         <ToastHost />
         <SlimHeader
           name={settings.name}
@@ -367,13 +404,3 @@ export default function App() {
     </SafeAreaProvider>
   );
 }
-
-const S = StyleSheet.create({
-  root: { flex: 1, backgroundColor: DS.bg },
-  loading: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: DS.bg },
-  loadLogo: { width: 48, height: 48, borderRadius: 16, backgroundColor: DS.ink, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
-  loadLogoText: { color: '#fff', fontSize: 22, fontWeight: '700' },
-  loadText: { fontSize: 20, fontWeight: '600', color: DS.ink, letterSpacing: -0.4, fontFamily: font.bold },
-  body: { flex: 1 },
-  scroll: { padding: 16, paddingBottom: 8, paddingTop: 4 },
-});

@@ -106,8 +106,8 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
           <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
             {showDelta && (
               <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: DS.primary, borderRadius: DS.radius.xs, paddingHorizontal: 6, paddingVertical: 2, marginRight: 8 }}>
-                <I name="arrow-upward" size={10} color="#fff" />
-                <Text style={[T.labelSm, { color: '#fff', marginLeft: 2 }]}>{Math.abs(delta).toFixed(1)}%</Text>
+                <I name="arrow-upward" size={10} color={DS.onPrimary} />
+                <Text style={[T.labelSm, { color: DS.onPrimary, marginLeft: 2 }]}>{Math.abs(delta).toFixed(1)}%</Text>
               </View>
             )}
             <Text style={[T.bodySm, { color: DS.onVariant }]} numberOfLines={1}>
@@ -145,7 +145,7 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
         <Card style={{ padding: 12 }}>
           <View style={{ flexDirection: 'row', alignItems: 'center' }}>
             <View style={{ width: 28, height: 28, borderRadius: 999, backgroundColor: DS.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 }}>
-              <I name="warning" size={14} color="#fff" />
+              <I name="warning" size={14} color={DS.onPrimary} />
             </View>
             <View style={{ flex: 1, minWidth: 0 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -156,7 +156,7 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
               <Text style={[T.bodySm, { color: DS.onVariant, marginTop: 2 }]} numberOfLines={1}>{banner.desc}</Text>
             </View>
             <Pressable onPress={banner.act} style={{ backgroundColor: DS.primary, borderRadius: DS.radius.xs, paddingHorizontal: 12, paddingVertical: 4, marginLeft: 8 }}>
-              <Text style={[T.labelSm, { color: '#fff' }]}>{banner.btn}</Text>
+              <Text style={[T.labelSm, { color: DS.onPrimary }]}>{banner.btn}</Text>
             </Pressable>
           </View>
         </Card>
@@ -181,7 +181,7 @@ export function DashScreen({ txs, goals, budgets, recurrings, settings, flags, o
             <View key={t.id}>
               <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, paddingVertical: 10 }}>
                 <View style={{ width: 28, height: 28, borderRadius: 999, backgroundColor: t.type === 'income' ? DS.primary : DS.high, alignItems: 'center', justifyContent: 'center', marginRight: 10 }}>
-                  <I name={txIcon(t)} size={14} color={t.type === 'income' ? '#fff' : DS.on} />
+                  <I name={txIcon(t)} size={14} color={t.type === 'income' ? DS.onPrimary : DS.on} />
                 </View>
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <Text style={{ fontSize: 13, lineHeight: 18, fontWeight: '500', color: DS.primary, fontFamily: font.medium }} numberOfLines={1}>

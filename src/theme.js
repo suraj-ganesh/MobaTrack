@@ -1,8 +1,15 @@
 // Monochrome Financial Atelier — EXACT tokens from Stitch 1126451746754138922.
-// What the four screens render: primary #000000, JetBrains Mono numerals,
-// 12px cards / 8px panels / pills, hairline rgba(15,23,42,0.08).
+// Light theme from the original spec; dark theme is its true inverse:
+// deep ink surfaces, white-as-accent, white hairlines, dark blurred glass.
+//
+// Theme engine: DS and C are live ES-module bindings (export let). applyTheme()
+// swaps them and notifies subscribers (ui.js rebuilds its stylesheet) — App.js
+// then forces one re-render so every inline DS reference re-evaluates.
 
-export const DS = {
+const MODES = ['light', 'dark', 'system'];
+export const THEME_MODES = MODES;
+
+const LIGHT_TOKENS = {
   surface: '#faf8ff',
   dim: '#d2d9f4',
   bright: '#faf8ff',
@@ -28,29 +35,132 @@ export const DS = {
   glassDock: 'rgba(255,255,255,0.9)',
   inset: '#f4f5ff',
   inputBg: 'rgba(0,0,0,0.02)',
+  // theme-specific composites
+  sheen: 'rgba(255,255,255,0.95)',
+  chipBase: 'rgba(255,255,255,0.85)',
+  sheetBase: 'rgba(255,255,255,0.94)',
+  inputBase: '#ffffff',
+  knob: '#ffffff',
+  blurTint: 'light',
   radius: { xs: 4, sm: 8, card: 12, pill: 9999 },
 };
 
-// Back-compat aliases for More/editor/lock (same palette).
-export const C = {
-  bg: DS.surface,
-  card: DS.lowest,
-  ink: DS.on,
-  black: DS.primary,
-  muted: DS.onVariant,
-  faint: '#94a3b8',
-  line: '#e6e8f2',
-  hairline: DS.hairline,
-  accent: DS.primary,
-  accentSoft: 'rgba(0,0,0,0.05)',
-  success: DS.primary,
-  danger: DS.error,
-  warn: DS.onVariant,
-  error: DS.error,
-  greyLight: DS.low,
-  greyMedium: DS.high,
-  greyDark: DS.onVariant,
+// Dark: "Monochrome Financial Atelier — Night Press".
+// Same architecture: glass cards r12, hairlines, black-pill accents inverted
+// to white. Cool blue-ink undertone, no pure black (contrast with cards).
+const DARK_TOKENS = {
+  surface: '#0b0d13',
+  dim: '#141823',
+  bright: '#0b0d13',
+  lowest: '#12151d',
+  low: '#171b25',
+  container: '#1c212d',
+  high: '#232834',
+  highest: '#2b3140',
+  background: '#0b0d13',
+  on: '#eceef6',
+  onVariant: '#9aa0ae',
+  onBackground: '#eceef6',
+  primary: '#ffffff',
+  onPrimary: '#0b0d13',
+  primaryContainer: '#e8eaf2',
+  hairline: 'rgba(255,255,255,0.07)',
+  rowLine: 'rgba(255,255,255,0.09)',
+  outline: '#6b7080',
+  outlineVariant: '#39404e',
+  error: '#ff6b6b',
+  errorContainer: '#2e1515',
+  glassCard: 'rgba(20,24,33,0.82)',
+  glassDock: 'rgba(15,18,26,0.88)',
+  inset: '#10131b',
+  inputBg: 'rgba(255,255,255,0.05)',
+  sheen: 'rgba(255,255,255,0.07)',
+  chipBase: 'rgba(24,29,40,0.9)',
+  sheetBase: 'rgba(19,23,32,0.96)',
+  inputBase: '#1c212d',
+  knob: '#0b0d13',
+  blurTint: 'dark',
+  radius: { xs: 4, sm: 8, card: 12, pill: 9999 },
 };
+
+function tokens(s) {
+  const t = { ...s };
+  t.radius = { ...s.radius };
+  return t;
+}
+
+// Back-compat aliases for More/editor/lock (same palette).
+function aliases(T) {
+  const dark = T.blurTint === 'dark';
+  return dark
+    ? {
+        bg: '#0b0d13',
+        card: T.lowest,
+        ink: T.on,
+        black: T.primary,
+        muted: T.onVariant,
+        faint: '#6b7080',
+        line: 'rgba(255,255,255,0.08)',
+        hairline: T.hairline,
+        accent: T.primary,
+        accentSoft: 'rgba(255,255,255,0.08)',
+        success: T.primary,
+        danger: T.error,
+        warn: T.onVariant,
+        error: T.error,
+        greyLight: T.low,
+        greyMedium: T.high,
+        greyDark: T.onVariant,
+      }
+    : {
+        bg: T.surface,
+        card: T.lowest,
+        ink: T.on,
+        black: T.primary,
+        muted: T.onVariant,
+        faint: '#94a3b8',
+        line: '#e6e8f2',
+        hairline: T.hairline,
+        accent: T.primary,
+        accentSoft: 'rgba(0,0,0,0.05)',
+        success: T.primary,
+        danger: T.error,
+        warn: T.onVariant,
+        error: T.error,
+        greyLight: T.low,
+        greyMedium: T.high,
+        greyDark: T.onVariant,
+      };
+}
+
+export let themeMode = 'system';
+export let themeResolved = 'light';
+export let DS = tokens(LIGHT_TOKENS);
+export let C = aliases(DS);
+
+const listeners = new Set();
+export function onThemeChange(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+export function resolvedScheme(mode, systemScheme) {
+  const m = MODES.includes(mode) ? mode : 'system';
+  return m === 'system' ? (systemScheme === 'dark' ? 'dark' : 'light') : m;
+}
+
+export function applyTheme(mode, systemScheme) {
+  const r = resolvedScheme(mode, systemScheme);
+  if (r === themeResolved && (mode || 'system') === themeMode) return false;
+  themeMode = MODES.includes(mode) ? mode : 'system';
+  themeResolved = r;
+  DS = tokens(r === 'dark' ? DARK_TOKENS : LIGHT_TOKENS);
+  C = aliases(DS);
+  for (const fn of Array.from(listeners)) {
+    try { fn(); } catch {}
+  }
+  return true;
+}
 
 export const CATS = {
   expense: [

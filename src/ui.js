@@ -4,7 +4,7 @@
 import { Alert, Animated, Easing, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { BlurView } from 'expo-blur';
 import { MaterialIcons } from '@expo/vector-icons';
-import { DS, C, font, T } from './theme';
+import { DS, C, font, T, onThemeChange } from './theme';
 import React from 'react';
 
 const TOAST_ICON = { success: 'check-circle', info: 'info', error: 'error' };
@@ -71,7 +71,7 @@ export function ToastHost({ top = 60 }) {
     <Animated.View pointerEvents="none" style={[U.toastWrap, { top, opacity: op, transform: [{ translateY: y }] }]}>
       <BlurView intensity={90} tint="light" style={U.toastGlass}>
         <View style={[U.toastIcon, toast.kind === 'error' && { backgroundColor: DS.error }]}>
-          <I name={TOAST_ICON[toast.kind] || 'info'} size={15} color="#fff" />
+          <I name={TOAST_ICON[toast.kind] || 'info'} size={15} color={DS.onPrimary} />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={U.toastTitle}>{toast.title}</Text>
@@ -141,7 +141,7 @@ export function Btn({ title, onPress, kind = 'primary', style }) {
 // crisp ambient shadow. r12, p20.
 export function GlassCard({ children, style, intensity = 85 }) {
   return (
-    <BlurView intensity={intensity} tint="light" style={[U.glass, style]}>
+    <BlurView intensity={intensity} tint={DS.blurTint} style={[U.glass, style]}>
       {children}
     </BlurView>
   );
@@ -210,7 +210,7 @@ export function Row({ children, style }) {
 export function Chip({ label, active, onPress, icon }) {
   return (
     <Pressable onPress={onPress} style={[U.chip, active && U.chipActive]}>
-      {!!icon && <I name={icon} size={13} color={active ? '#fff' : DS.onVariant} style={{ marginRight: 4 }} />}
+      {!!icon && <I name={icon} size={13} color={active ? DS.onPrimary : DS.onVariant} style={{ marginRight: 4 }} />}
       <Text style={[U.chipText, active && U.chipTextActive]}>{label}</Text>
     </Pressable>
   );
@@ -266,7 +266,7 @@ export function Sheet({ visible, onClose, title, children, wide }) {
       <View style={U.backdrop}>
         <Pressable style={U.backdropTap} onPress={onClose} />
         <Animated.View style={[U.sheet, wide && U.sheetWide, { transform: [{ translateY }], opacity }]}>
-          <BlurView intensity={90} tint="light" style={StyleSheet.absoluteFill} />
+          <BlurView intensity={90} tint={DS.blurTint} style={StyleSheet.absoluteFill} />
           <View style={U.sheetHead}>
             <Text style={U.sheetTitle}>{title}</Text>
             <Pressable onPress={onClose} hitSlop={10}>
@@ -410,7 +410,7 @@ export function FloatingDock({ tab, onGo, onAdd }) {
         {left.map(item)}
         <View style={U.fabSlot}>
           <Pressable onPress={onAdd} style={[U.fab, { width: FABSIZE, height: FABSIZE, marginTop: -FABLIFT }]} accessibilityLabel="Add transaction">
-            <I name="add" size={24} color="#fff" />
+            <I name="add" size={24} color={DS.onPrimary} />
           </Pressable>
         </View>
         {right.map(item)}
@@ -436,7 +436,10 @@ export function Bars({ rows, format }) {
   );
 }
 
-export const U = StyleSheet.create({
+// U is rebuilt on every theme change (theme.js notifies its subscribers) so
+// static StyleSheet entries always carry the current palette.
+function makeStyles() {
+return StyleSheet.create({
   btn: {
     backgroundColor: DS.primary,
     borderRadius: DS.radius.pill,
@@ -446,7 +449,7 @@ export const U = StyleSheet.create({
     paddingHorizontal: 18,
     marginVertical: 6,
   },
-  btnText: { color: '#fff', fontSize: 14, fontWeight: '600', fontFamily: font.bold },
+  btnText: { color: DS.onPrimary, fontSize: 14, fontWeight: '600', fontFamily: font.bold },
   btnGhost: {
     backgroundColor: DS.glassCard,
     borderWidth: 1,
@@ -466,7 +469,7 @@ export const U = StyleSheet.create({
     borderRadius: DS.radius.card,
     borderWidth: 1,
     borderColor: DS.hairline,
-    borderTopColor: 'rgba(255,255,255,0.95)',
+    borderTopColor: DS.sheen,
     padding: 20,
     marginVertical: 6,
     overflow: 'hidden',
@@ -481,7 +484,7 @@ export const U = StyleSheet.create({
     borderRadius: DS.radius.card,
     borderWidth: 1,
     borderColor: DS.hairline,
-    borderTopColor: 'rgba(255,255,255,0.95)',
+    borderTopColor: DS.sheen,
     padding: 20,
     marginVertical: 6,
     overflow: 'hidden',
@@ -501,7 +504,7 @@ export const U = StyleSheet.create({
   fieldWrap: { marginVertical: 6 },
   label: { fontSize: 12, fontWeight: '600', color: DS.onVariant, marginBottom: 5, fontFamily: font.medium },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: DS.inputBase,
     borderWidth: 1,
     borderColor: DS.hairline,
     borderRadius: 10,
@@ -514,9 +517,9 @@ export const U = StyleSheet.create({
 
   searchWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: DS.chipBase,
     borderWidth: 1, borderColor: DS.hairline,
-    borderTopColor: 'rgba(255,255,255,0.95)',
+    borderTopColor: DS.sheen,
     borderRadius: DS.radius.sm, height: 36,
     paddingHorizontal: 12, marginVertical: 6,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
@@ -528,10 +531,10 @@ export const U = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
 
   chip: {
-    backgroundColor: 'rgba(255,255,255,0.85)',
+    backgroundColor: DS.chipBase,
     borderWidth: 1,
     borderColor: DS.hairline,
-    borderTopColor: 'rgba(255,255,255,0.95)',
+    borderTopColor: DS.sheen,
     borderRadius: DS.radius.pill,
     paddingHorizontal: 12, height: 26, justifyContent: 'center', alignItems: 'center',
     flexDirection: 'row',
@@ -541,18 +544,18 @@ export const U = StyleSheet.create({
   },
   chipActive: { backgroundColor: DS.primary },
   chipText: { ...T.labelMd, color: DS.on },
-  chipTextActive: { color: '#fff', fontWeight: '600' },
+  chipTextActive: { color: DS.onPrimary, fontWeight: '600' },
 
   track: { borderRadius: 999, overflow: 'hidden', backgroundColor: DS.highest },
   fill: { height: '100%', borderRadius: 999 },
   empty: { ...T.bodySm, color: DS.outline, textAlign: 'center', marginVertical: 12 },
 
   toggle: { width: 36, height: 20, borderRadius: 999, justifyContent: 'center' },
-  knob: { width: 16, height: 16, borderRadius: 999, backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, elevation: 2 },
+  knob: { width: 16, height: 16, borderRadius: 999, backgroundColor: DS.knob, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3, elevation: 2 },
 
   backdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.35)', justifyContent: 'flex-end' },
   backdropTap: { flex: 1 },
-  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingBottom: 34, maxHeight: '88%', overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.94)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.6)' },
+  sheet: { borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 18, paddingBottom: 34, maxHeight: '88%', overflow: 'hidden', backgroundColor: DS.sheetBase, borderWidth: 1, borderColor: DS.sheen },
   sheetWide: {},
   sheetHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
   sheetTitle: { ...T.hSm, color: DS.on },
@@ -578,7 +581,7 @@ export const U = StyleSheet.create({
   appHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 56 },
   brandRow: { flexDirection: 'row', alignItems: 'center' },
   logo: { width: 24, height: 24, borderRadius: DS.radius.xs, backgroundColor: DS.primary, alignItems: 'center', justifyContent: 'center', marginRight: 8 },
-  logoText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: -0.3 },
+  logoText: { color: DS.onPrimary, fontSize: 10, fontWeight: '700', letterSpacing: -0.3 },
   headerTitle: { ...T.hSm, color: DS.on },
   bell: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   iconBtn: { width: 40, height: 44, alignItems: 'center', justifyContent: 'center' },
@@ -589,7 +592,7 @@ export const U = StyleSheet.create({
     width: '100%', maxWidth: 384,
     borderRadius: DS.radius.pill, paddingHorizontal: 4, height: 56,
     borderWidth: 1, borderColor: DS.hairline,
-    borderTopColor: 'rgba(255,255,255,0.9)',
+    borderTopColor: DS.sheen,
     backgroundColor: DS.glassDock,
     shadowColor: '#000', shadowOffset: { width: 0, height: 12 }, shadowOpacity: 0.1, shadowRadius: 32, elevation: 10,
     overflow: 'visible',
@@ -624,12 +627,21 @@ export const U = StyleSheet.create({
   toastGlass: {
     flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 384,
     borderRadius: 16, borderWidth: 1, borderColor: DS.hairline,
-    borderTopColor: 'rgba(255,255,255,0.95)',
-    backgroundColor: 'rgba(255,255,255,0.85)', padding: 14, overflow: 'hidden',
+    borderTopColor: DS.sheen,
+    backgroundColor: DS.chipBase, padding: 14, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.1, shadowRadius: 28, elevation: 8,
   },
   toastIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: DS.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
   toastTitle: { ...T.hSm, color: DS.on },
   toastMsg: { ...T.bodySm, color: DS.onVariant, marginTop: 2 },
+});
+}
+
+export let U = makeStyles();
+
+// Re-apply the current palette whenever the theme flips (App.js triggers
+// a root re-render right after, so inline DS reads refresh too).
+onThemeChange(() => {
+  U = makeStyles();
 });

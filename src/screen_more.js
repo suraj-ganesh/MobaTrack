@@ -1,13 +1,13 @@
 // More: insights, recurring bills, import/export, app lock, profile. NPR-only.
 import { useMemo, useState } from 'react';
 import { Platform, Pressable, Share, Text, TextInput, View } from 'react-native';
-import { C, CATS, fmt, font, monthKey, monthLabel, shiftMonth, todayISO, uid } from './theme';
+import { C, DS, CATS, fmt, font, monthKey, monthLabel, shiftMonth, themeResolved, todayISO, uid } from './theme';
 import { balanceOf } from './money';
 import { forecast, freqLabel, FREQS, upcomingBills } from './recurring';
 import { compareMonths, monthSummary, prevMonthKey, topMerchants, yearSummary } from './summary';
 import { buildCSV, rowsToItems, parseCSV } from './csv';
 import { hashPin, newSalt } from './crypto';
-import { Bars, Btn, Card, Chip, Empty, Field, MonthNav, Section, Sheet, U, confirmAct, notify } from './ui';
+import { Bars, Btn, Card, Chip, Empty, Field, I, MonthNav, Section, Sheet, U, confirmAct, notify } from './ui';
 
 /* ---------------- Insights ---------------- */
 
@@ -395,11 +395,71 @@ function SecuritySection({ settings, onUpdate, onLockNow, verify }) {
 
 /* ---------------- More screen ---------------- */
 
+const THEME_OPTIONS = [
+  { id: 'light', icon: 'light-mode', label: 'Light' },
+  { id: 'dark', icon: 'dark-mode', label: 'Dark' },
+  { id: 'system', icon: 'brightness-auto', label: 'System' },
+];
+
+function AppearanceSection({ value, onPick }) {
+  return (
+    <Card>
+      <Text style={{ fontSize: 14, fontWeight: '700', color: C.ink, fontFamily: font.bold }}>Theme</Text>
+      <Text style={{ fontSize: 12, color: C.muted, fontFamily: font.regular, marginTop: 2 }}>
+        Light · Dark (Night Press) · follow the phone
+      </Text>
+      <View style={{ flexDirection: 'row', marginTop: 10 }}>
+        {THEME_OPTIONS.map((o, i) => {
+          const active = value === o.id;
+          return (
+            <Pressable
+              key={o.id}
+              onPress={() => onPick(o.id)}
+              style={{
+                flex: 1, height: 34, borderRadius: 999, flexDirection: 'row',
+                alignItems: 'center', justifyContent: 'center',
+                marginRight: i < THEME_OPTIONS.length - 1 ? 6 : 0,
+                backgroundColor: active ? DS.primary : DS.container,
+              }}
+            >
+              <I name={o.icon} size={14} color={active ? DS.onPrimary : DS.onVariant} />
+              <Text style={{
+                marginLeft: 5, fontSize: 11, lineHeight: 14,
+                fontWeight: active ? '600' : '500',
+                fontFamily: active ? font.bold : font.medium,
+                color: active ? DS.onPrimary : DS.onVariant,
+              }}>
+                {o.label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={{ fontSize: 11, color: C.faint, fontFamily: font.medium, marginTop: 8 }}>
+        {value === 'system'
+          ? `Following the phone — currently showing ${themeResolved}.`
+          : `Forced ${value} — currently showing the ${themeResolved} palette.`}
+      </Text>
+    </Card>
+  );
+}
+
 export function MoreScreen(props) {
   const { settings, onUpdateSettings, onReset, onLockNow } = props;
   const [name, setName] = useState(settings.name);
   return (
     <View>
+      <Section title="Appearance">
+        <AppearanceSection
+          value={settings.theme || 'system'}
+          onPick={(id) => {
+            const label = THEME_OPTIONS.find((o) => o.id === id)?.label || id;
+            onUpdateSettings({ theme: id });
+            notify(`Theme set to ${label}.`, { kind: 'info', title: 'Appearance updated' });
+          }}
+        />
+      </Section>
+
       <Section title="Insights & trends">
         <Insights txs={props.txs} settings={settings} />
       </Section>
