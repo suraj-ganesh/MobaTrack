@@ -24,7 +24,7 @@ import { findAnomalies } from './src/anomalies';
 import { postDue } from './src/recurring';
 import { learnMapping } from './src/categorize';
 import { hashPin, verifyTotp } from './src/crypto';
-import { SlimHeader, Btn, Card, FadeSlide, FloatingDock, Label, notify } from './src/ui';
+import { SlimHeader, Btn, Card, FadeSlide, FloatingDock, ToastHost, Label, notify } from './src/ui';
 import { TxEditor } from './src/tx_editor';
 import { DashScreen } from './src/screen_dash';
 import { TxScreen } from './src/screen_tx';
@@ -283,6 +283,7 @@ export default function App() {
       <SafeAreaProvider>
         <SafeAreaView style={{ flex: 1, backgroundColor: DS.bg }}>
           <StatusBar style="dark" />
+          <ToastHost top={24} />
           <LockScreen settings={settings} onUnlock={() => setLocked(false)} />
         </SafeAreaView>
       </SafeAreaProvider>
@@ -293,6 +294,7 @@ export default function App() {
     <SafeAreaProvider>
       <SafeAreaView style={S.root} edges={['top', 'bottom', 'left', 'right']}>
         <StatusBar style="dark" />
+        <ToastHost />
         <SlimHeader
           name={settings.name}
           onBell={() => (Object.keys(flags || {}).length ? setTab('Activity') : notify('You are all caught up. No new alerts.'))}

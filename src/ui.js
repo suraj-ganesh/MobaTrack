@@ -7,12 +7,79 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { DS, C, font, T } from './theme';
 import React from 'react';
 
-export function notify(msg) {
-  if (Platform.OS === 'web') {
-    try { window.alert(msg); } catch {}
+const TOAST_ICON = { success: 'check-circle', info: 'info', error: 'error' };
+
+let toastEmit = null;
+
+export function setToastEmitter(fn) { toastEmit = fn; }
+
+// Glass toast popup. Styling mirrors the lucide `<Alert>` pattern:
+// icon (CheckCircle / Info) + title + styled description on a glass card.
+export function notify(msg, opts = {}) {
+  const text = String(msg);
+  const kind = opts.kind ||
+    (/wrong|fail|invalid|error/i.test(text) ? 'error'
+      : /added|updated|deleted|saved|recorded|done/i.test(text) ? 'success' : 'info');
+  const title = opts.title ||
+    (kind === 'error' ? 'Something went wrong'
+      : kind === 'info' ? 'Heads up'
+        : /^Added/i.test(text) ? 'Transaction added'
+          : /deleted/i.test(text) ? 'Transaction deleted'
+            : /updated/i.test(text) ? 'Transaction updated'
+              : 'All done');
+  if (toastEmit) {
+    toastEmit({ kind, title, msg: text });
     return;
   }
-  Alert.alert(msg);
+  // Fallback before ToastHost mounts (native Alert-on-light is the fallback).
+  if (Platform.OS === 'web') {
+    try { window.alert(text); } catch {}
+    return;
+  }
+  try { Alert.alert(title, text); } catch { Alert.alert(text); }
+}
+
+const TOAST_MS = 2800;
+
+export function ToastHost({ top = 60 }) {
+  const [toast, setToast] = React.useState(null);
+  const timer = React.useRef(null);
+  const y = React.useRef(new Animated.Value(-28)).current;
+  const op = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const emit = ({ kind, title, msg }) => {
+      if (timer.current) clearTimeout(timer.current);
+      setToast({ kind, title, msg, at: Date.now() });
+      Animated.parallel([
+        Animated.timing(y, { toValue: 0, duration: 240, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(op, { toValue: 1, duration: 220, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+      ]).start();
+      timer.current = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(y, { toValue: -28, duration: 200, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+          Animated.timing(op, { toValue: 0, duration: 180, useNativeDriver: true }),
+        ]).start();
+      }, TOAST_MS);
+    };
+    setToastEmitter(emit);
+    return () => { setToastEmitter(null); if (timer.current) clearTimeout(timer.current); };
+  }, []);
+
+  if (!toast) return null;
+  return (
+    <Animated.View pointerEvents="none" style={[U.toastWrap, { top, opacity: op, transform: [{ translateY: y }] }]}>
+      <BlurView intensity={90} tint="light" style={U.toastGlass}>
+        <View style={[U.toastIcon, toast.kind === 'error' && { backgroundColor: DS.error }]}>
+          <I name={TOAST_ICON[toast.kind] || 'info'} size={15} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={U.toastTitle}>{toast.title}</Text>
+          {!!toast.msg && <Text style={U.toastMsg}>{toast.msg}</Text>}
+        </View>
+      </BlurView>
+    </Animated.View>
+  );
 }
 
 export function confirmAct(title, msg, okLabel, fn) {
@@ -552,4 +619,17 @@ export const U = StyleSheet.create({
   hRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   divider: { height: 1, backgroundColor: DS.rowLine, marginVertical: 12 },
   badge: { fontSize: 11, fontWeight: '600', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999, overflow: 'hidden', fontFamily: font.bold },
+
+  toastWrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center', zIndex: 1000, elevation: 20 },
+  toastGlass: {
+    flexDirection: 'row', alignItems: 'center', width: '100%', maxWidth: 384,
+    borderRadius: 16, borderWidth: 1, borderColor: DS.hairline,
+    borderTopColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: 'rgba(255,255,255,0.85)', padding: 14, overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1, shadowRadius: 28, elevation: 8,
+  },
+  toastIcon: { width: 30, height: 30, borderRadius: 999, backgroundColor: DS.primary, alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+  toastTitle: { ...T.hSm, color: DS.on },
+  toastMsg: { ...T.bodySm, color: DS.onVariant, marginTop: 2 },
 });
