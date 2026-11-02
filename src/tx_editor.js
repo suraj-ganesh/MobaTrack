@@ -5,8 +5,33 @@ import { Pressable, Text, TextInput, View } from 'react-native';
 import { C, CATS, font, isISODate, todayISO, uid } from './theme';
 import { suggestCategory } from './categorize';
 import { Btn, Chip, Field, Sheet, confirmAct, notify } from './ui';
+import { MonthCalendar } from './screen_goals';
 
 const numOnly = (v) => String(v ?? '').replace(/[^0-9.]/g, '');
+
+function txCatIcon(cat, type) {
+  const c = String(cat).toLowerCase();
+  if (type === 'income') {
+    if (/salary/.test(c)) return 'work';
+    if (/freelance/.test(c)) return 'laptop';
+    if (/business/.test(c)) return 'store';
+    if (/interest/.test(c)) return 'trending-up';
+    if (/gift/.test(c)) return 'card-giftcard';
+    return 'more-horiz';
+  }
+  if (/food|drink|dining/.test(c)) return 'restaurant';
+  if (/grocery/.test(c)) return 'shopping-cart';
+  if (/transport/.test(c)) return 'directions-bus';
+  if (/shopping/.test(c)) return 'shopping-bag';
+  if (/bill|util/.test(c)) return 'receipt';
+  if (/rent/.test(c)) return 'home';
+  if (/health/.test(c)) return 'medical-services';
+  if (/entertainment/.test(c)) return 'movie';
+  if (/travel/.test(c)) return 'flight-takeoff';
+  if (/education/.test(c)) return 'school';
+  if (/personal/.test(c)) return 'face';
+  return 'more-horiz';
+}
 
 function ItemRows({ items, onChange }) {
   const set = (i, patch) => onChange(items.map((it, j) => (j === i ? { ...it, ...patch } : it)));
@@ -149,13 +174,16 @@ export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete,
       <View style={{ flexDirection: 'row', flexWrap: 'wrap' }}>
         {cats.map((c) => (
           <Chip key={c} label={c} active={category === c}
+            icon={txCatIcon(c, type)}
             onPress={() => { setCategory(c); setManualCat(true); }} />
         ))}
       </View>
       <Field label="Note (optional)" placeholder="Anything to remember" value={note}
         onChangeText={(v) => setNote(v.slice(0, 140))} />
-      <Field label="Date (YYYY-MM-DD)" value={date} maxLength={10}
-        onChangeText={(v) => setDate(v.replace(/[^0-9\-]/g, '').slice(0, 10))} />
+      <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, marginBottom: 2, fontFamily: font.medium }}>
+        Date
+      </Text>
+      <MonthCalendar value={date} onPick={setDate} />
       {type === 'expense' && (
         <View style={{ marginTop: 8 }}>
           <Pressable onPress={() => setShowItems((s) => !s)}>

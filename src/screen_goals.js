@@ -43,7 +43,7 @@ function fmtDay(iso) {
 // Native month-grid calendar (Monday-first). Tap a day to pick the date.
 const WD = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
-function MonthCalendar({ value, onPick }) {
+export function MonthCalendar({ value, onPick }) {
   const [view, setView] = useState(value && isISODate(value) ? value.slice(0, 7) : monthKey(todayISO()));
   const [y, m] = view.split('-').map(Number);
   const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;
