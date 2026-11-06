@@ -221,6 +221,12 @@ export function isISODate(s) {
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === s;
 }
 
+export function fmtDMY(iso) {
+  if (!isISODate(iso)) return String(iso || '');
+  const d = new Date(iso + 'T12:00:00');
+  return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+}
+
 export function addDaysISO(iso, n) {
   const d = new Date(iso + 'T12:00:00');
   d.setDate(d.getDate() + n);

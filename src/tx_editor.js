@@ -2,9 +2,9 @@
 // NPR-only: every amount is in rupees.
 import { useEffect, useMemo, useState } from 'react';
 import { Pressable, Text, TextInput, View } from 'react-native';
-import { C, CATS, font, isISODate, todayISO, uid } from './theme';
+import { C, CATS, DS, font, fmtDMY, isISODate, todayISO, uid } from './theme';
 import { suggestCategory } from './categorize';
-import { Btn, Chip, Field, Sheet, confirmAct, notify } from './ui';
+import { Btn, Chip, Field, I, Sheet, U, confirmAct, notify } from './ui';
 import { MonthCalendar } from './screen_goals';
 
 const numOnly = (v) => String(v ?? '').replace(/[^0-9.]/g, '');
@@ -81,6 +81,8 @@ export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete,
   const [merchant, setMerchant] = useState('');
   const [note, setNote] = useState('');
   const [date, setDate] = useState(todayISO());
+  const [payMode, setPayMode] = useState('online');
+  const [calOpen, setCalOpen] = useState(false);
   const [showItems, setShowItems] = useState(false);
   const [items, setItems] = useState([]);
 
@@ -138,6 +140,7 @@ export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete,
       merchant: merchant.trim().slice(0, 80),
       note: note.trim().slice(0, 140),
       date,
+      mode: payMode,
       items: type === 'expense' ? cleanItems : [],
     };
     // Only memorize explicit user corrections — never defaults or suggestions.
@@ -149,7 +152,7 @@ export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete,
   };
 
   return (
-    <Sheet visible={visible} onClose={onClose} title={editing ? 'Edit transaction' : 'Add transaction'}>
+    <Sheet visible={visible} onClose={onClose} title={editing ? 'Edit transaction' : 'Add transaction'} showClose={false}>
       <View style={{ flexDirection: 'row', marginBottom: 4 }}>
         {['expense', 'income'].map((t) => (
           <Chip
@@ -183,7 +186,20 @@ export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete,
       <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, marginBottom: 2, fontFamily: font.medium }}>
         Date
       </Text>
-      <MonthCalendar value={date} onPick={setDate} />
+      <Pressable onPress={() => setCalOpen((o) => !o)} style={[U.row, { backgroundColor: DS.inputBase, borderWidth: 1, borderColor: DS.hairline, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 6 }]}>
+        <Text style={{ fontSize: 14, color: DS.on, fontFamily: font.regular }}>{fmtDMY(date)}</Text>
+        <View style={{ marginLeft: 8 }}>
+          <I name="calendar-today" size={16} color={DS.onVariant} />
+        </View>
+      </Pressable>
+      {calOpen && <MonthCalendar value={date} onPick={setDate} />}
+      <Text style={{ fontSize: 12, fontWeight: '700', color: C.muted, marginTop: 6, marginBottom: 2, fontFamily: font.medium }}>
+        Mode
+      </Text>
+      <View style={{ flexDirection: 'row', marginBottom: 6 }}>
+        <Chip label="Online" active={payMode === 'online'} icon="check-circle" onPress={() => setPayMode('online')} />
+        <Chip label="Cash" active={payMode === 'cash'} icon="money" onPress={() => setPayMode('cash')} />
+      </View>
       {type === 'expense' && (
         <View style={{ marginTop: 8 }}>
           <Pressable onPress={() => setShowItems((s) => !s)}>

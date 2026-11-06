@@ -247,7 +247,7 @@ export function Toggle({ value, onChange }) {
   );
 }
 
-export function Sheet({ visible, onClose, title, children, wide }) {
+export function Sheet({ visible, onClose, title, children, wide, showClose = true }) {
   const translateY = React.useRef(new Animated.Value(300)).current;
   const opacity = React.useRef(new Animated.Value(0)).current;
 
@@ -269,9 +269,11 @@ export function Sheet({ visible, onClose, title, children, wide }) {
           <BlurView intensity={90} tint={DS.blurTint} style={StyleSheet.absoluteFill} />
           <View style={U.sheetHead}>
             <Text style={U.sheetTitle}>{title}</Text>
-            <Pressable onPress={onClose} hitSlop={10}>
-              <Text style={U.sheetClose}>Done</Text>
-            </Pressable>
+            {showClose && (
+              <Pressable onPress={onClose} hitSlop={10}>
+                <Text style={U.sheetClose}>Done</Text>
+              </Pressable>
+            )}
           </View>
           <ScrollView keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
             {children}
