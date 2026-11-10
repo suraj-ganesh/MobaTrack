@@ -97,6 +97,7 @@ export function TxEditor({ visible, initial, learned, onClose, onSave, onDelete,
       setMerchant(t.merchant || '');
       setNote(t.note || '');
       setDate(t.date && isISODate(t.date) ? t.date : todayISO());
+      setPayMode(t.mode === 'cash' ? 'cash' : 'online');
       setItems(Array.isArray(t.items) ? t.items.map((i) => ({ ...i, amount: String(i.amount) })) : []);
       setShowItems(Array.isArray(t.items) && t.items.length > 0);
     }
